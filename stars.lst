@@ -1,4 +1,4 @@
-Microsoft (R) Macro Assembler Version 6.14.8444		    03/01/14 20:50:31
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/12/14 23:13:06
 stars.asm						     Page 1 - 1
 
 
@@ -100,12 +100,28 @@ stars.asm						     Page 1 - 1
  0000011D  BE 000000F5		    mov esi, 245
  00000122  BF 0000010E		    mov edi, 270
  00000127  E8 00000000 E	    call DrawStarReg
- 0000012C  C3			    ret             ;; Don't delete this line
+					;; Loop to create a bunch of stars (boundaries 639 and 479)
+ 0000012C  BE 0000000A			mov esi, 10
+ 00000131  BF 0000000A			mov edi, 10
+ 00000136  E8 00000000 E		call DrawStarReg
+ 0000013B			xloop:
+ 0000013B  81 FE 0000026C		cmp esi, 620
+ 00000141  7F 1A			jg done
+ 00000143  83 C6 1E			add esi, 30
+ 00000146  BF 0000000A			mov edi, 10
+ 0000014B			yloop:
+ 0000014B  81 FF 000001CC		cmp edi, 460
+ 00000151  7F E8			jg xloop
+ 00000153  83 C7 1E			add edi, 30
+ 00000156  E8 00000000 E		call DrawStarReg
+ 0000015B  EB EE			jmp yloop
+ 0000015D			done:	
+ 0000015D  C3			    ret             ;; Don't delete this line
 				    
- 0000012D			DrawAllStars ENDP
+ 0000015E			DrawAllStars ENDP
 
 				END
-Microsoft (R) Macro Assembler Version 6.14.8444		    03/01/14 20:50:31
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/12/14 23:13:06
 stars.asm						     Symbols 2 - 1
 
 
@@ -118,14 +134,17 @@ Segments and Groups:
 FLAT . . . . . . . . . . . . . .	GROUP
 STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
 _DATA  . . . . . . . . . . . . .	32 Bit	 00000000 Para	  Public  'DATA'	
-_TEXT  . . . . . . . . . . . . .	32 Bit	 0000012D Para	  Public  'CODE'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 0000015E Para	  Public  'CODE'	
 
 
 Procedures,  parameters and locals:
 
                 N a m e                 Type     Value    Attr
 
-DrawAllStars . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 0000012D Public STDCALL
+DrawAllStars . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 0000015E Public STDCALL
+  xloop  . . . . . . . . . . . .	L Near	 0000013B _TEXT	
+  yloop  . . . . . . . . . . . .	L Near	 0000014B _TEXT	
+  done . . . . . . . . . . . . .	L Near	 0000015D _TEXT	
 DrawStarReg  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 
 

@@ -79,22 +79,6 @@ DrawAllStars PROC
     mov esi, 245
     mov edi, 270
     call DrawStarReg
-	;; Loop to create a bunch of stars (boundaries 639 and 479)
-	mov esi, 10
-	mov edi, 10
-	call DrawStarReg
-xloop:
-	cmp esi, 620
-	jg done
-	add esi, 30
-	mov edi, 10
-yloop:
-	cmp edi, 460
-	jg xloop
-	add edi, 30
-	call DrawStarReg
-	jmp yloop
-done:	
     ret             ;; Don't delete this line
     
 DrawAllStars ENDP

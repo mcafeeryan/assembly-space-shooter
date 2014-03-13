@@ -1,4 +1,4 @@
-Microsoft (R) Macro Assembler Version 6.14.8444		    03/01/14 20:50:31
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/12/14 23:13:06
 logic.asm						     Page 1 - 1
 
 
@@ -314,73 +314,111 @@ logic.asm						     Page 1 - 1
 
 
  = 00000064			FIXED_ANGLE_ROTATE = 00000100
+ 00000000 70 65 77 2E 77	pew BYTE "pew.wav",0
+	   61 76 00
+ 00000008 65 78 70 6C 6F	explosion_sound BYTE "explosion.wav",0
+	   73 69 6F 6E 2E
+	   77 61 76 00
 
+					
  00000000			.CODE
 
+				EXTERNDEF STDCALL PlaySoundA : NEAR
+				PlaySoundA PROTO STDCALL :DWORD, :DWORD, :DWORD
+ = PlaySoundA			PlaySound equ <PlaySoundA>
+
+ = 00000001			SND_ASYNC = 1h
+ = 00020000			SND_FILENAME = 20000h
+					
 				;; Define the function GameLogic
 
 				MoveShip PROTO shipArg: PTR SPRITE, key:DWORD
 
  00000000			GameLogic PROC USES ecx key:DWORD, ship1:DWORD, ship2:DWORD, ship3:DWORD
 
- 00000004  8B 4D 08			mov ecx, key
- 00000007  83 F9 26			cmp ecx, VK_UP 		;going to use the up key to animate the ship to move forward by switching sprites
- 0000000A  75 2A			jne sprite_same
- 0000000C  8B 4D 0C			mov ecx, ship1
- 0000000F  3B 0D 00000018 E		cmp ecx, ship.bmpPtr
- 00000015  74 0B			je changeship2
- 00000017  8B 4D 10			mov ecx, ship2
- 0000001A  3B 0D 00000018 E		cmp ecx, ship.bmpPtr
- 00000020  74 0B			je changeship3
+ 00000004  8B 4D 0C			mov ecx, ship1
+ 00000007  3B 0D 00000018 E		cmp ecx, ship.bmpPtr
+ 0000000D  74 0B			je changeship2
+ 0000000F  8B 4D 10			mov ecx, ship2
+ 00000012  3B 0D 00000018 E		cmp ecx, ship.bmpPtr
+ 00000018  74 0B			je changeship3
 					
- 00000022			changeship2:
- 00000022  8B 4D 10			mov ecx, ship2
- 00000025  89 0D 00000018 E		mov ship.bmpPtr, ecx
- 0000002B  EB 09			jmp sprite_same
+ 0000001A			changeship2:
+ 0000001A  8B 4D 10			mov ecx, ship2
+ 0000001D  89 0D 00000018 E		mov ship.bmpPtr, ecx
+ 00000023  EB 09			jmp sprite_same
 
- 0000002D			changeship3:
- 0000002D  8B 4D 14			mov ecx, ship3
- 00000030  89 0D 00000018 E		mov ship.bmpPtr, ecx
+ 00000025			changeship3:
+ 00000025  8B 4D 14			mov ecx, ship3
+ 00000028  89 0D 00000018 E		mov ship.bmpPtr, ecx
 					
- 00000036			sprite_same:	
+ 0000002E			sprite_same:
+ 0000002E  8B 4D 08			mov ecx, key
+ 00000031  83 F9 20			cmp ecx, VK_SPACE
+ 00000034  75 11			jne finish_up
+					;; if space need to shoot projectile and play sound
+					INVOKE PlaySound, OFFSET pew, 0, SND_ASYNC+SND_FILENAME
+					
+ 00000047			finish_up:	
 					INVOKE MoveShip, offset ship, key
- 00000043  83 05 00000008 E		add asteroid1.a, FIXED_ANGLE_ROTATE
+ 00000054  83 05 00000008 E		add asteroid1.a, FIXED_ANGLE_ROTATE
 	   64
- 0000004A  83 2D 00000008 E		sub asteroid2.a, FIXED_ANGLE_ROTATE
+ 0000005B  83 2D 00000008 E		sub asteroid2.a, FIXED_ANGLE_ROTATE
 	   64
-
+					
 					ret
- 00000056			GameLogic ENDP
+ 00000067			GameLogic ENDP
 
- 00000056			MoveShip PROC USES ebx ecx shipArg:PTR SPRITE, key: DWORD
- 0000005B  8B 4D 0C			mov ecx, key
- 0000005E  83 F9 25			cmp ecx, VK_LEFT
- 00000061  74 07			je left
- 00000063  83 F9 27			cmp ecx, VK_RIGHT
- 00000066  74 11			je right
- 00000068  EB 1F			jmp done
+ 00000067			MoveShip PROC USES ebx ecx shipArg:PTR SPRITE, key: DWORD
+ 0000006C  8B 4D 0C			mov ecx, key
+ 0000006F  83 F9 25			cmp ecx, VK_LEFT
+ 00000072  74 39			je left
+ 00000074  83 F9 27			cmp ecx, VK_RIGHT
+ 00000077  74 43			je right
+ 00000079  83 F9 26			cmp ecx, VK_UP
+ 0000007C  74 07			je up
+ 0000007E  83 F9 28			cmp ecx, VK_DOWN
+ 00000081  74 16			je down
+ 00000083  EB 47			jmp done
 
- 0000006A			left:
- 0000006A  8B 5D 08			mov ebx, shipArg
- 0000006D  8B 0B			mov ecx, (SPRITE PTR[ebx]).x
- 0000006F  83 F9 14			cmp ecx, 20 		;check so you don't go out of bounds
- 00000072  7C 15			jl done
- 00000074  83 2B 0A			sub (SPRITE PTR[ebx]).x, 10;	
- 00000077  EB 10			jmp done;
+ 00000085			up:
+ 00000085  8B 5D 08			mov ebx, shipArg
+ 00000088  8B 4B 04			mov ecx, (SPRITE PTR [ebx]).y
+ 0000008B  81 F9 00000145		cmp ecx, 325
+ 00000091  7C 39			jl done
+ 00000093  83 6B 04 0F			sub (SPRITE PTR [ebx]).y, 15
+ 00000097  EB 33			jmp done
 
- 00000079			right: 
- 00000079  8B 5D 08			mov ebx, shipArg
- 0000007C  8B 0B			mov ecx, (SPRITE PTR[ebx]).x
- 0000007E  81 F9 00000267		cmp ecx, 615		;check so you don't go out of bounds
- 00000084  7F 03			jg done
- 00000086  83 03 0A			add (SPRITE PTR[ebx]).x, 10;
+ 00000099			down:
+ 00000099  8B 5D 08			mov ebx, shipArg
+ 0000009C  8B 4B 04			mov ecx, (SPRITE PTR [ebx]).y
+ 0000009F  81 F9 0000019F		cmp ecx, 415
+ 000000A5  7F 25			jg done
+ 000000A7  83 43 04 0F			add (SPRITE PTR [ebx]).y, 15
+ 000000AB  EB 1F			jmp done
 
- 00000089			done:
+					
+ 000000AD			left:
+ 000000AD  8B 5D 08			mov ebx, shipArg
+ 000000B0  8B 0B			mov ecx, (SPRITE PTR [ebx]).x
+ 000000B2  83 F9 1E			cmp ecx, 30 		;check so you don't go out of bounds
+ 000000B5  7C 15			jl done
+ 000000B7  83 2B 0F			sub (SPRITE PTR[ebx]).x, 15;	
+ 000000BA  EB 10			jmp done
+
+ 000000BC			right: 
+ 000000BC  8B 5D 08			mov ebx, shipArg
+ 000000BF  8B 0B			mov ecx, (SPRITE PTR[ebx]).x
+ 000000C1  81 F9 00000258		cmp ecx, 600		;check so you don't go out of bounds
+ 000000C7  7F 03			jg done
+ 000000C9  83 03 0F			add (SPRITE PTR[ebx]).x, 15
+
+ 000000CC			done:
 					ret
- 0000008F			MoveShip ENDP
+ 000000D2			MoveShip ENDP
 					
 				END
-Microsoft (R) Macro Assembler Version 6.14.8444		    03/01/14 20:50:31
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/12/14 23:13:06
 logic.asm						     Symbols 2 - 1
 
 
@@ -421,8 +459,8 @@ Segments and Groups:
 
 FLAT . . . . . . . . . . . . . .	GROUP
 STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
-_DATA  . . . . . . . . . . . . .	32 Bit	 00000000 Para	  Public  'DATA'	
-_TEXT  . . . . . . . . . . . . .	32 Bit	 0000008F Para	  Public  'CODE'	
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000016 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 000000D2 Para	  Public  'CODE'	
 
 
 Procedures,  parameters and locals:
@@ -441,22 +479,26 @@ FixedCos . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 FixedMult  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 FixedSin . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 GameInit . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-GameLogic  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000056 Public STDCALL
+GameLogic  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000067 Public STDCALL
   key  . . . . . . . . . . . . .	DWord	 bp + 00000008
   ship1  . . . . . . . . . . . .	DWord	 bp + 0000000C
   ship2  . . . . . . . . . . . .	DWord	 bp + 00000010
   ship3  . . . . . . . . . . . .	DWord	 bp + 00000014
-  changeship2  . . . . . . . . .	L Near	 00000022 _TEXT	
-  changeship3  . . . . . . . . .	L Near	 0000002D _TEXT	
-  sprite_same  . . . . . . . . .	L Near	 00000036 _TEXT	
+  changeship2  . . . . . . . . .	L Near	 0000001A _TEXT	
+  changeship3  . . . . . . . . .	L Near	 00000025 _TEXT	
+  sprite_same  . . . . . . . . .	L Near	 0000002E _TEXT	
+  finish_up  . . . . . . . . . .	L Near	 00000047 _TEXT	
 GameMain . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 GameRender . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-MoveShip . . . . . . . . . . . .	P Near	 00000056 _TEXT	Length= 00000039 Public STDCALL
+MoveShip . . . . . . . . . . . .	P Near	 00000067 _TEXT	Length= 0000006B Public STDCALL
   shipArg  . . . . . . . . . . .	DWord	 bp + 00000008
   key  . . . . . . . . . . . . .	DWord	 bp + 0000000C
-  left . . . . . . . . . . . . .	L Near	 0000006A _TEXT	
-  right  . . . . . . . . . . . .	L Near	 00000079 _TEXT	
-  done . . . . . . . . . . . . .	L Near	 00000089 _TEXT	
+  up . . . . . . . . . . . . . .	L Near	 00000085 _TEXT	
+  down . . . . . . . . . . . . .	L Near	 00000099 _TEXT	
+  left . . . . . . . . . . . . .	L Near	 000000AD _TEXT	
+  right  . . . . . . . . . . . .	L Near	 000000BC _TEXT	
+  done . . . . . . . . . . . . .	L Near	 000000CC _TEXT	
+PlaySoundA . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 RotateBlit . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 
 
@@ -474,7 +516,10 @@ Symbols:
 @fardata . . . . . . . . . . . .	Text   	 FLAT
 @stack . . . . . . . . . . . . .	Text   	 FLAT
 FIXED_ANGLE_ROTATE . . . . . . .	Number	 00000064h   
+PlaySound  . . . . . . . . . . .	Text   	 PlaySoundA
 SINTAB . . . . . . . . . . . . .	Word	 00000000 FLAT	External STDCALL
+SND_ASYNC  . . . . . . . . . . .	Number	 00000001h   
+SND_FILENAME . . . . . . . . . .	Number	 00020000h   
 StarBitmap . . . . . . . . . . .	_EECS205BITMAP  00000000 FLAT	External STDCALL
 VK_0 . . . . . . . . . . . . . .	Number	 00000030h   
 VK_1 . . . . . . . . . . . . . .	Number	 00000031h   
@@ -605,8 +650,10 @@ WinMain  . . . . . . . . . . . .	L Near	 00000000 FLAT	External STDCALL
 asteroid1  . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
 asteroid2  . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
 dwPitch  . . . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+explosion_sound  . . . . . . . .	Byte	 00000008 _DATA	
 lpDisplayBits  . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
 lpTyroneBmp  . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+pew  . . . . . . . . . . . . . .	Byte	 00000000 _DATA	
 ship . . . . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
 
 	   0 Warnings
