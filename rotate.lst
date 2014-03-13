@@ -1,0 +1,449 @@
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/01/14 20:50:31
+rotate.asm						     Page 1 - 1
+
+
+				; #########################################################################
+				;
+				;   rotate.asm - Assembly file for EECS205 Assignment 3
+				;
+				;
+				; #########################################################################
+
+				      .586
+				      .MODEL FLAT,STDCALL
+				      .STACK 4096
+				      option casemap :none  ; case sensitive
+
+				    include blit.inc 		; So I can call BlitReg
+			      C ; #########################################################################
+			      C ;
+			      C ;   blit.inc - Includes for EECS205 Assignment 2
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C 
+ 00000010		      C _EECS205BITMAP STRUCT
+ 00000000  00000000	      C  dwWidth      DWORD  ?
+ 00000004  00000000	      C  dwHeight     DWORD  ?
+ 00000008  00		      C  bTransparent BYTE   ?
+ 00000009  00000003 [	      C               BYTE   3 DUP(?)
+	    00
+	   ]
+ 0000000C  00000000	      C  lpBytes      DWORD  ?
+			      C _EECS205BITMAP ENDS
+			      C 
+			      C EECS205BITMAP TYPEDEF _EECS205BITMAP
+			      C 
+			      C EXTERNDEF StarBitmap:EECS205BITMAP
+			      C EXTERNDEF dwPitch:DWORD
+			      C EXTERNDEF lpDisplayBits:DWORD
+			      C 
+			      C 
+			      C BlitReg PROTO STDCALL   ; Renders a bitmap to the 2D drawing space
+			      C                         ; Uses register passed parameters:
+			      C                         ;      esi = x-coordinate (of image center)
+			      C                         ;      edi = y-coordinate (of image center)
+			      C 			;      edx = pointer to the bitmap to draw
+			      C 
+			      C 
+			      C 
+				    include trig.inc		; Useful prototypes
+			      C ; #########################################################################
+			      C ;
+			      C ;   trig.inc - Includes for EECS205 Assignment 3
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C ;; FIXED is a fixed point number (16 bit integer and 16 bit fractional components)
+			      C ;;    To convert a FIXED value in eax into an integer:  sar eax, 16
+			      C ;;    To convert an integer value in eax into a FIXED:  shl eax, 16
+			      C FIXED TYPEDEF DWORD
+			      C 
+			      C EXTERNDEF SINTAB:WORD 
+			      C 
+			      C FixedSin PROTO STDCALL dwAngle:FIXED 
+			      C FixedCos PROTO STDCALL dwAngle:FIXED
+			      C 
+			      C 
+			      C 
+			      C 
+			      C 
+				    include rotate.inc		; 	and definitions
+			      C ; #########################################################################
+			      C ;
+			      C ;   rotate.inc - Includes for EECS205 Assignment 3
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C include blit.inc
+			      C ; #########################################################################
+			      C ;
+			      C ;   blit.inc - Includes for EECS205 Assignment 2
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C 
+			      C _EECS205BITMAP STRUCT
+			      C  dwWidth      DWORD  ?
+			      C  dwHeight     DWORD  ?
+			      C  bTransparent BYTE   ?
+			      C               BYTE   3 DUP(?)
+			      C  lpBytes      DWORD  ?
+			      C _EECS205BITMAP ENDS
+			      C 
+			      C EECS205BITMAP TYPEDEF _EECS205BITMAP
+			      C 
+			      C EXTERNDEF StarBitmap:EECS205BITMAP
+			      C EXTERNDEF dwPitch:DWORD
+			      C EXTERNDEF lpDisplayBits:DWORD
+			      C 
+			      C 
+			      C BlitReg PROTO STDCALL   ; Renders a bitmap to the 2D drawing space
+			      C                         ; Uses register passed parameters:
+			      C                         ;      esi = x-coordinate (of image center)
+			      C                         ;      edi = y-coordinate (of image center)
+			      C 			;      edx = pointer to the bitmap to draw
+			      C 
+			      C 
+			      C 
+			      C 
+			      C BasicBlit PROTO STDCALL lpBmp:PTR EECS205BITMAP, xcenter:DWORD, ycenter:DWORD
+			      C 
+			      C RotateBlit PROTO STDCALL lpBmp:PTR EECS205BITMAP, xcenter:DWORD, ycenter:DWORD, angle:DWORD
+			      C 
+			      C FixedMult PROTO val1:FIXED, val2:FIXED
+			      C 
+
+
+ 00000000			.DATA
+					;; You may declare helper variables here, but it would probably be better to use local variables
+
+ 00000000			.CODE
+
+
+				;; Define the functions BasicBlit and RotateBlit
+				; Routine which draws a bitmap to the screen
+
+					;; Helper function FixedMult
+					
+ 00000000			FixedMult PROC STDCALL USES ebx edx val1:FIXED, val2:FIXED
+					;; fixed point multiply two values
+ 00000005  8B 45 08			mov eax, val1
+ 00000008  F7 6D 0C			imul val2
+ 0000000B  C1 E8 10			shr eax, 16
+ 0000000E  C1 E2 10			shl edx, 16
+ 00000011  0B C2			or eax, edx
+					ret
+					
+ 00000019			FixedMult ENDP
+
+ 00000019			BasicBlit PROC STDCALL USES edx esi edi lpBmp:PTR EECS205BITMAP, xcenter:DWORD, ycenter:DWORD
+
+ 0000001F  8B 55 08			mov edx, lpBmp
+ 00000022  8B 75 0C			mov esi, xcenter
+ 00000025  8B 7D 10			mov edi, ycenter
+ 00000028  E8 00000000 E		call BlitReg
+					ret
+					
+ 00000034			BasicBlit ENDP
+
+ 00000034			RotateBlit PROC STDCALL USES ebx edx lpBmp:Ptr EECS205BITMAP, xcenter:DWORD, ycenter:DWORD, angle:DWORD
+
+					LOCAL cosa:FIXED, sina:FIXED, shiftX:DWORD, shiftY:DWORD, dstWidth:DWORD, dstHeight:DWORD, dstX:DWORD, dstY:DWORD, srcX:DWORD, srcY:DWORD, dwH:DWORD, dwW:DWORD, bTrans:BYTE, lpB:DWORD, screenX:DWORD, screenY:DWORD
+					
+ 0000003C			blit:
+					;; just variable initialization
+ 0000003C  8B 75 08			mov esi, lpBmp
+ 0000003F  8B 06			mov eax, (EECS205BITMAP PTR [esi]).dwWidth
+ 00000041  89 45 D0			mov dwW, eax
+ 00000044  8B 46 04			mov eax, (EECS205BITMAP PTR [esi]).dwHeight
+ 00000047  89 45 D4			mov dwH, eax
+ 0000004A  8A 46 08			mov al, (EECS205BITMAP PTR [esi]).bTransparent
+ 0000004D  88 45 CF			mov bTrans, al
+ 00000050  8B 46 0C			mov eax, (EECS205BITMAP PTR [esi]).lpBytes
+ 00000053  89 45 C8			mov lpB, eax
+					
+				;cosa = FixedCos(angle) 
+				;sina = FixedSin(angle) 
+
+					INVOKE FixedCos, angle
+ 0000005E  89 45 FC			mov cosa, eax
+					INVOKE FixedSin, angle
+ 00000069  89 45 F8			mov sina, eax
+					
+				;shiftX = dwWidth * cosa / 2 ­ dwHeight * sina / 2;
+ 0000006C  8B 5D D0			mov ebx, dwW
+ 0000006F  89 5D F4			mov shiftX, ebx		;shiftX = dwWidth
+ 00000072  C1 65 F4 10			shl shiftX, 16 		;make it a fixed point
+ 00000076  8B 5D FC			mov ebx, cosa
+ 00000079  D1 FB			sar ebx, 1 		;ebx <- cosa/2
+					INVOKE FixedMult, ebx, shiftX
+ 00000084  89 45 F4			mov shiftX, eax 	;shiftX = dwWidth * cosa/2
+ 00000087  8B 5D D4			mov ebx, dwH
+ 0000008A  C1 E3 10			shl ebx, 16 		;make it fixed point
+ 0000008D  8B 4D F8			mov ecx, sina
+ 00000090  D1 F9			sar ecx, 1 		;ecx <- sina/2
+					INVOKE FixedMult, ecx, ebx ;eax has dwHeight * sina/2
+ 00000099  29 45 F4			sub shiftX, eax 	;shiftX = dwWidth * cosa/2 - dwHeight * sina/2
+ 0000009C  C1 7D F4 10			sar shiftX, 16 		;convert to int
+				;shiftY = dwHeight * cosa / 2 + dwWidth * sina / 2;
+ 000000A0  8B 5D D4			mov ebx, dwH
+ 000000A3  89 5D F0			mov shiftY, ebx		;shiftY=dwHeight
+ 000000A6  C1 65 F0 10			shl shiftY, 16 		;make it fixed point
+ 000000AA  8B 5D FC			mov ebx, cosa
+ 000000AD  D1 FB			sar ebx, 1 		;ebx <- cosa/2
+					INVOKE FixedMult, ebx, shiftY ;shiftY = dwHeight * cosa/2
+ 000000B8  89 45 F0			mov shiftY, eax
+ 000000BB  8B 5D D0			mov ebx, dwW
+ 000000BE  C1 E3 10			shl ebx, 16
+ 000000C1  8B 4D F8			mov ecx, sina
+ 000000C4  D1 F9			sar ecx, 1 		;eax <- sina/2
+					INVOKE FixedMult, ecx, ebx ;eax <- dwWidth * sina/2
+ 000000CD  01 45 F0			add shiftY, eax		   ;shiftY = dwHeight * cosa/2 + dwWidth * sina/2
+ 000000D0  C1 7D F0 10			sar shiftY, 16		   ;convert to int
+
+				;dstWidth= dwWidth + dwHeight; 
+				;dstHeight= dstWidth; 
+ 000000D4  8B 5D D0			mov ebx, dwW
+ 000000D7  89 5D EC			mov dstWidth, ebx
+ 000000DA  8B 5D D4			mov ebx, dwH
+ 000000DD  01 5D EC			add dstWidth, ebx
+ 000000E0  8B 5D EC			mov ebx, dstWidth
+ 000000E3  89 5D E8			mov dstHeight, ebx
+
+				;for(dstX = ­dstWidth; dstX < dstWidth; dstX++)   { 
+				;  for(dstY = ­dstHeight; dstY < dstHeight; dstY++) { 
+					
+ 000000E6  8B 5D EC			mov ebx, dstWidth
+ 000000E9  F7 DB			neg ebx
+ 000000EB  89 5D E4			mov dstX, ebx
+ 000000EE			outerloop:
+ 000000EE  8B 5D EC			mov ebx, dstWidth
+ 000000F1  39 5D E4			cmp dstX, ebx
+ 000000F4  0F 8D 00000125		jge done
+ 000000FA  8B 5D E8			mov ebx, dstHeight
+ 000000FD  F7 DB			neg ebx
+ 000000FF  89 5D E0			mov dstY, ebx
+ 00000102			innerloop:
+ 00000102  8B 5D E8			mov ebx, dstHeight
+ 00000105  39 5D E0			cmp dstY, ebx
+ 00000108  0F 8D 00000109		jge doneinner
+
+				;srcX = dstX*cosa + dstY*sina; 
+				;srcY = dstY*cosa - dstX*sina; 
+ 0000010E  8B 5D E4			mov ebx, dstX
+ 00000111  C1 E3 10			shl ebx, 16		;convert to fixed
+					INVOKE FixedMult, ebx, cosa
+ 0000011D  89 45 DC			mov srcX, eax		;srcX = dstX * cosa
+ 00000120  8B 5D E0			mov ebx, dstY
+ 00000123  C1 E3 10			shl ebx, 16		;convert to fixed
+					INVOKE FixedMult, ebx, sina
+ 0000012F  01 45 DC			add srcX, eax 		;srcX = dstX * cosa + dstY * sina
+ 00000132  C1 7D DC 10			sar srcX, 16 		;convert back to int
+
+ 00000136  8B 5D E0			mov ebx, dstY
+ 00000139  C1 E3 10			shl ebx, 16 		;convert to fixed
+					INVOKE FixedMult, ebx, cosa
+ 00000145  89 45 D8			mov srcY, eax		;srcY = dstY*cosa
+ 00000148  8B 5D E4			mov ebx, dstX
+ 0000014B  C1 E3 10			shl ebx, 16 		;convert to fixed
+					INVOKE FixedMult, ebx, sina
+ 00000157  29 45 D8			sub srcY, eax 		;srcY = dstY*cosa - dstX*sina
+ 0000015A  C1 7D D8 10			sar srcY, 16		;convert back to int
+					
+				;if (srcX >= 0 && srcX < (EECS205BITMAP PTR [esi]).dwWidth && 
+				;            srcY >= 0 && srcY < (EECS205BITMAP PTR [esi]).dwHeight && 
+				;            (xcenter+dstX­shiftX) >= 0 && (xcenter+dstX­shiftX) < 639 && 
+				;            (ycenter+dstY­shiftY) >= 0 && (ycenter+dstY­shiftY) < 479 && 
+				;            bitmap pixel (srcX,srcY) is not transparent) then
+				;          Copy color value from bitmap (srcX, srcY) 
+				;to screen (xcenter+dstX­shiftX, ycenter+dstY­shiftX) 
+ 0000015E  83 7D DC 00			cmp srcX, 0		;if srcX >= 0
+ 00000162  0F 8C 000000A7		jl continue
+ 00000168  8B 45 D0			mov eax, dwW		
+ 0000016B  39 45 DC			cmp srcX, eax		;if srcX < dwWidth
+ 0000016E  0F 8D 0000009B		jge continue
+ 00000174  83 7D D8 00			cmp srcY, 0		;if srcY >= 0
+ 00000178  0F 8C 00000091		jl continue
+ 0000017E  8B 45 D4			mov eax, dwH
+ 00000181  39 45 D8			cmp srcY, eax 		;if srcY < dwHeight
+ 00000184  0F 8D 00000085		jge continue
+					;;if (xcenter + dstX - shiftX) >= 0
+ 0000018A  8B 45 0C			mov eax, xcenter
+ 0000018D  03 45 E4			add eax, dstX
+ 00000190  2B 45 F4			sub eax, shiftX
+ 00000193  83 F8 00			cmp eax, 0
+ 00000196  7C 77			jl continue
+					;; if (xcenter+dstX-shiftX) < 639
+ 00000198  3D 0000027F			cmp eax, 27fh 		;639 in hex
+ 0000019D  7D 70			jge continue
+					;; if (ycenter + dstY-shiftY) >= 0
+ 0000019F  8B 45 10			mov eax, ycenter
+ 000001A2  03 45 E0			add eax, dstY
+ 000001A5  2B 45 F0			sub eax, shiftY
+ 000001A8  83 F8 00			cmp eax, 0
+ 000001AB  7C 62			jl continue
+					;; if (ycenter+dstY-shiftY) < 479
+ 000001AD  3D 000001DF			cmp eax, 1dfh 		;479 in hex
+ 000001B2  7D 5B			jge continue
+					;; if bitmap_pixel(srcX,srcY) is not transparent
+					;; lpBytes[srcY*dwW+srcX]  != bTransparent
+ 000001B4  8B 5D C8			mov ebx, lpB
+ 000001B7  8B 45 D0			mov eax, dwW
+ 000001BA  F7 6D D8			imul srcY
+ 000001BD  03 45 DC			add eax, srcX
+ 000001C0  03 D8			add ebx, eax 		;lpBytes[srcY*dwW+srcX] address
+ 000001C2  33 C0			xor eax, eax
+ 000001C4  8A 03			mov al, BYTE PTR [ebx] 	;eax <- lpBytes[srcY*dwW+srcX]
+ 000001C6  33 DB			xor ebx, ebx
+ 000001C8  8A 5D CF			mov bl, bTrans
+ 000001CB  38 D8			cmp al, bl
+ 000001CD  74 40			jz continue 		;if lpBytes[srcX*dwW+srcY] != bTrans
+
+					;; Now through whole if statement, time for then
+ 000001CF			then:	
+					;; screenX = xcenter + dstX - shiftX
+					;; screenY = ycenter + dstY - shiftY
+ 000001CF  8B 45 0C			mov eax, xcenter
+ 000001D2  03 45 E4			add eax, dstX
+ 000001D5  2B 45 F4			sub eax, shiftX
+ 000001D8  89 45 C4			mov screenX, eax
+ 000001DB  8B 45 10			mov eax, ycenter
+ 000001DE  03 45 E0			add eax, dstY
+ 000001E1  2B 45 F0			sub eax, shiftY
+ 000001E4  89 45 C0			mov screenY, eax
+
+					;; lpDisplayBits[screenY*dwPitch + screenX] = lpB[srcY*dwW + srcX]
+ 000001E7  8B 45 C0			mov eax, screenY
+ 000001EA  F7 2D 00000000 E		imul dwPitch
+ 000001F0  03 45 C4			add eax, screenX
+ 000001F3  8B 1D 00000000 E		mov ebx, lpDisplayBits
+ 000001F9  03 D8			add ebx, eax
+ 000001FB  8B 4D C8			mov ecx, lpB
+ 000001FE  8B 45 D0			mov eax, dwW
+ 00000201  F7 6D D8			imul srcY
+ 00000204  03 45 DC			add eax, srcX
+ 00000207  03 C8			add ecx, eax
+ 00000209  33 C0			xor eax, eax
+ 0000020B  8A 01			mov al, BYTE PTR [ecx]
+ 0000020D  88 03			mov BYTE PTR [ebx], al
+					
+ 0000020F			continue:	
+ 0000020F  FF 45 E0			inc dstY
+ 00000212  E9 FFFFFEEB			jmp innerloop
+					
+ 00000217			doneinner:	
+ 00000217  FF 45 E4			inc dstX
+ 0000021A  E9 FFFFFECF			jmp outerloop
+					
+ 0000021F			done:	
+					ret
+
+ 00000225			RotateBlit ENDP
+
+
+				END
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/01/14 20:50:31
+rotate.asm						     Symbols 2 - 1
+
+
+
+
+Structures and Unions:
+
+                N a m e                  Size
+                                         Offset      Type
+
+_EECS205BITMAP . . . . . . . . .	 00000010
+  dwWidth  . . . . . . . . . . .	 00000000	 DWord
+  dwHeight . . . . . . . . . . .	 00000004	 DWord
+  bTransparent . . . . . . . . .	 00000008	 Byte
+  lpBytes  . . . . . . . . . . .	 0000000C	 DWord
+
+
+Types:
+
+                N a m e                  Size     Attr
+
+EECS205BITMAP  . . . . . . . . .	 00000010     _EECS205BITMAP 
+FIXED  . . . . . . . . . . . . .	 00000004     DWord 
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000000 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 00000225 Para	  Public  'CODE'	
+
+
+Procedures,  parameters and locals:
+
+                N a m e                 Type     Value    Attr
+
+BasicBlit  . . . . . . . . . . .	P Near	 00000019 _TEXT	Length= 0000001B Public STDCALL
+  lpBmp  . . . . . . . . . . . .	DWord	 bp + 00000008
+  xcenter  . . . . . . . . . . .	DWord	 bp + 0000000C
+  ycenter  . . . . . . . . . . .	DWord	 bp + 00000010
+BlitReg  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FixedCos . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FixedMult  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000019 Public STDCALL
+  val1 . . . . . . . . . . . . .	DWord	 bp + 00000008
+  val2 . . . . . . . . . . . . .	DWord	 bp + 0000000C
+FixedSin . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+RotateBlit . . . . . . . . . . .	P Near	 00000034 _TEXT	Length= 000001F1 Public STDCALL
+  lpBmp  . . . . . . . . . . . .	DWord	 bp + 00000008
+  xcenter  . . . . . . . . . . .	DWord	 bp + 0000000C
+  ycenter  . . . . . . . . . . .	DWord	 bp + 00000010
+  angle  . . . . . . . . . . . .	DWord	 bp + 00000014
+  cosa . . . . . . . . . . . . .	DWord	 bp - 00000004
+  sina . . . . . . . . . . . . .	DWord	 bp - 00000008
+  shiftX . . . . . . . . . . . .	DWord	 bp - 0000000C
+  shiftY . . . . . . . . . . . .	DWord	 bp - 00000010
+  dstWidth . . . . . . . . . . .	DWord	 bp - 00000014
+  dstHeight  . . . . . . . . . .	DWord	 bp - 00000018
+  dstX . . . . . . . . . . . . .	DWord	 bp - 0000001C
+  dstY . . . . . . . . . . . . .	DWord	 bp - 00000020
+  srcX . . . . . . . . . . . . .	DWord	 bp - 00000024
+  srcY . . . . . . . . . . . . .	DWord	 bp - 00000028
+  dwH  . . . . . . . . . . . . .	DWord	 bp - 0000002C
+  dwW  . . . . . . . . . . . . .	DWord	 bp - 00000030
+  bTrans . . . . . . . . . . . .	Byte	 bp - 00000031
+  lpB  . . . . . . . . . . . . .	DWord	 bp - 00000038
+  screenX  . . . . . . . . . . .	DWord	 bp - 0000003C
+  screenY  . . . . . . . . . . .	DWord	 bp - 00000040
+  blit . . . . . . . . . . . . .	L Near	 0000003C _TEXT	
+  outerloop  . . . . . . . . . .	L Near	 000000EE _TEXT	
+  innerloop  . . . . . . . . . .	L Near	 00000102 _TEXT	
+  then . . . . . . . . . . . . .	L Near	 000001CF _TEXT	
+  continue . . . . . . . . . . .	L Near	 0000020F _TEXT	
+  doneinner  . . . . . . . . . .	L Near	 00000217 _TEXT	
+  done . . . . . . . . . . . . .	L Near	 0000021F _TEXT	
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000003h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+SINTAB . . . . . . . . . . . . .	Word	 00000000 FLAT	External STDCALL
+StarBitmap . . . . . . . . . . .	_EECS205BITMAP  00000000 FLAT	External STDCALL
+dwPitch  . . . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+lpDisplayBits  . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+
+	   0 Warnings
+	   0 Errors

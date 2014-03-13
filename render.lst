@@ -1,0 +1,297 @@
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/01/14 20:50:31
+render.asm						     Page 1 - 1
+
+
+				; #########################################################################
+				;
+				;   render.asm - Assembly file for EECS205 Assignment 4/5
+				;
+				;
+				; #########################################################################
+
+				      .586
+				      .MODEL FLAT,STDCALL
+				      .STACK 4096
+				      option casemap :none  ; case sensitive
+
+				    include stars.inc		
+			      C ; #########################################################################
+			      C ;
+			      C ;   stars.inc - Includes for EECS205 Assignment 1
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C 
+			      C DrawStarReg PROTO STDCALL ; Renders a star in the 2D drawing space
+			      C                         ; Uses register passed parameters:
+			      C                         ;      esi = x-coordinate
+			      C                         ;      edi = y-coordinate
+			      C 
+			      C DrawAllStars PROTO STDCALL ; Routine which uses DrawStarReg to create all the stars
+			      C 
+			      C EXTERNDEF STDCALL WinMain : NEAR
+			      C 
+				    include blit.inc
+			      C ; #########################################################################
+			      C ;
+			      C ;   blit.inc - Includes for EECS205 Assignment 2
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C 
+ 00000010		      C _EECS205BITMAP STRUCT
+ 00000000  00000000	      C  dwWidth      DWORD  ?
+ 00000004  00000000	      C  dwHeight     DWORD  ?
+ 00000008  00		      C  bTransparent BYTE   ?
+ 00000009  00000003 [	      C               BYTE   3 DUP(?)
+	    00
+	   ]
+ 0000000C  00000000	      C  lpBytes      DWORD  ?
+			      C _EECS205BITMAP ENDS
+			      C 
+			      C EECS205BITMAP TYPEDEF _EECS205BITMAP
+			      C 
+			      C EXTERNDEF StarBitmap:EECS205BITMAP
+			      C EXTERNDEF dwPitch:DWORD
+			      C EXTERNDEF lpDisplayBits:DWORD
+			      C 
+			      C 
+			      C BlitReg PROTO STDCALL   ; Renders a bitmap to the 2D drawing space
+			      C                         ; Uses register passed parameters:
+			      C                         ;      esi = x-coordinate (of image center)
+			      C                         ;      edi = y-coordinate (of image center)
+			      C 			;      edx = pointer to the bitmap to draw
+			      C 
+			      C 
+			      C 
+				    include trig.inc
+			      C ; #########################################################################
+			      C ;
+			      C ;   trig.inc - Includes for EECS205 Assignment 3
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C ;; FIXED is a fixed point number (16 bit integer and 16 bit fractional components)
+			      C ;;    To convert a FIXED value in eax into an integer:  sar eax, 16
+			      C ;;    To convert an integer value in eax into a FIXED:  shl eax, 16
+			      C FIXED TYPEDEF DWORD
+			      C 
+			      C EXTERNDEF SINTAB:WORD 
+			      C 
+			      C FixedSin PROTO STDCALL dwAngle:FIXED 
+			      C FixedCos PROTO STDCALL dwAngle:FIXED
+			      C 
+			      C 
+			      C 
+			      C 
+			      C 
+				    include rotate.inc	
+			      C ; #########################################################################
+			      C ;
+			      C ;   rotate.inc - Includes for EECS205 Assignment 3
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C include blit.inc
+			      C ; #########################################################################
+			      C ;
+			      C ;   blit.inc - Includes for EECS205 Assignment 2
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C 
+			      C _EECS205BITMAP STRUCT
+			      C  dwWidth      DWORD  ?
+			      C  dwHeight     DWORD  ?
+			      C  bTransparent BYTE   ?
+			      C               BYTE   3 DUP(?)
+			      C  lpBytes      DWORD  ?
+			      C _EECS205BITMAP ENDS
+			      C 
+			      C EECS205BITMAP TYPEDEF _EECS205BITMAP
+			      C 
+			      C EXTERNDEF StarBitmap:EECS205BITMAP
+			      C EXTERNDEF dwPitch:DWORD
+			      C EXTERNDEF lpDisplayBits:DWORD
+			      C 
+			      C 
+			      C BlitReg PROTO STDCALL   ; Renders a bitmap to the 2D drawing space
+			      C                         ; Uses register passed parameters:
+			      C                         ;      esi = x-coordinate (of image center)
+			      C                         ;      edi = y-coordinate (of image center)
+			      C 			;      edx = pointer to the bitmap to draw
+			      C 
+			      C 
+			      C 
+			      C 
+			      C BasicBlit PROTO STDCALL lpBmp:PTR EECS205BITMAP, xcenter:DWORD, ycenter:DWORD
+			      C 
+			      C RotateBlit PROTO STDCALL lpBmp:PTR EECS205BITMAP, xcenter:DWORD, ycenter:DWORD, angle:DWORD
+			      C 
+			      C FixedMult PROTO val1:FIXED, val2:FIXED
+			      C 
+				    include game.inc
+			      C ; #########################################################################
+			      C ;
+			      C ;   game.inc - Includes for EECS205 Assignment 4/5
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C ;; These are library routines that you will call (but do NOT have to implement)
+			      C BeginDraw PROTO
+			      C EndDraw PROTO
+			      C 
+			      C ;; You should not need to modify these prototypes (actually, it would probably be bad)
+			      C GameInit PROTO
+			      C GameMain PROTO mouseStatus:DWORD, keyDown:DWORD, keyUp:DWORD
+			      C 
+			      C ;; Useful Library Routines
+			      C DrawString PROTO x:DWORD, y:DWORD, string:PTR BYTE 
+			      C DrawInt PROTO x:DWORD, y:DWORD, value:DWORD
+			      C 
+			      C ;; Feel free to modify the following
+			      C GameRender PROTO
+			      C GameLogic PROTO key:DWORD, ship1:DWORD, ship2:DWORD, ship3:DWORD
+			      C 
+			      C EXTERNDEF lpTyroneBmp : DWORD
+			      C 
+ 0000001C		      C _SPRITE STRUCT
+ 00000000  00000000	      C 	x DWORD ?
+ 00000004  00000000	      C 	y DWORD ?
+ 00000008  00000000	      C 	a DWORD ?
+ 0000000C  00000000	      C 	xx DWORD ?
+ 00000010  00000000	      C 	yy DWORD ?
+ 00000014  00000000	      C 	aa  DWORD ?
+ 00000018  00000000	      C 	bmpPtr DWORD ?
+			      C _SPRITE ENDS
+			      C 
+			      C SPRITE TYPEDEF _SPRITE
+			      C 
+			      C EXTERNDEF asteroid1:SPRITE
+			      C EXTERNDEF asteroid2:SPRITE
+			      C EXTERNDEF ship:SPRITE
+			      C 
+			      C 
+
+
+ 00000000			.DATA
+
+ 00000000			.CODE
+
+				;; Define the function GameRender
+
+ 00000000			GameRender PROC 
+
+					INVOKE BeginDraw
+
+					INVOKE DrawAllStars
+
+					INVOKE RotateBlit, asteroid1.bmpPtr, asteroid1.x, asteroid1.y, asteroid1.a
+					INVOKE RotateBlit, asteroid2.bmpPtr, asteroid2.x, asteroid2.y, asteroid2.a
+					INVOKE RotateBlit, ship.bmpPtr, ship.x, ship.y, ship.a
+
+					INVOKE EndDraw
+
+ 00000066  C3			ret
+ 00000067			GameRender ENDP
+
+
+				END
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/01/14 20:50:31
+render.asm						     Symbols 2 - 1
+
+
+
+
+Structures and Unions:
+
+                N a m e                  Size
+                                         Offset      Type
+
+_EECS205BITMAP . . . . . . . . .	 00000010
+  dwWidth  . . . . . . . . . . .	 00000000	 DWord
+  dwHeight . . . . . . . . . . .	 00000004	 DWord
+  bTransparent . . . . . . . . .	 00000008	 Byte
+  lpBytes  . . . . . . . . . . .	 0000000C	 DWord
+_SPRITE  . . . . . . . . . . . .	 0000001C
+  x  . . . . . . . . . . . . . .	 00000000	 DWord
+  y  . . . . . . . . . . . . . .	 00000004	 DWord
+  a  . . . . . . . . . . . . . .	 00000008	 DWord
+  xx . . . . . . . . . . . . . .	 0000000C	 DWord
+  yy . . . . . . . . . . . . . .	 00000010	 DWord
+  aa . . . . . . . . . . . . . .	 00000014	 DWord
+  bmpPtr . . . . . . . . . . . .	 00000018	 DWord
+
+
+Types:
+
+                N a m e                  Size     Attr
+
+EECS205BITMAP  . . . . . . . . .	 00000010     _EECS205BITMAP 
+FIXED  . . . . . . . . . . . . .	 00000004     DWord 
+SPRITE . . . . . . . . . . . . .	 0000001C     _SPRITE 
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000000 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 00000067 Para	  Public  'CODE'	
+
+
+Procedures,  parameters and locals:
+
+                N a m e                 Type     Value    Attr
+
+BasicBlit  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+BeginDraw  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+BlitReg  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DrawAllStars . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DrawInt  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DrawStarReg  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DrawString . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+EndDraw  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FixedCos . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FixedMult  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FixedSin . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GameInit . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GameLogic  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GameMain . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GameRender . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000067 Public STDCALL
+RotateBlit . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000003h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+SINTAB . . . . . . . . . . . . .	Word	 00000000 FLAT	External STDCALL
+StarBitmap . . . . . . . . . . .	_EECS205BITMAP  00000000 FLAT	External STDCALL
+WinMain  . . . . . . . . . . . .	L Near	 00000000 FLAT	External STDCALL
+asteroid1  . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
+asteroid2  . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
+dwPitch  . . . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+lpDisplayBits  . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+lpTyroneBmp  . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+ship . . . . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
+
+	   0 Warnings
+	   0 Errors

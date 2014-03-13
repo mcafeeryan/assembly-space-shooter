@@ -1,0 +1,613 @@
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/01/14 20:50:31
+logic.asm						     Page 1 - 1
+
+
+				; #########################################################################
+				;
+				;   logic.asm - Assembly file for EECS205 Assignment 4/5
+				;
+				;
+				; #########################################################################
+
+				      .586
+				      .MODEL FLAT,STDCALL
+				      .STACK 4096
+				      option casemap :none  ; case sensitive
+
+				    include stars.inc	
+			      C ; #########################################################################
+			      C ;
+			      C ;   stars.inc - Includes for EECS205 Assignment 1
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C 
+			      C DrawStarReg PROTO STDCALL ; Renders a star in the 2D drawing space
+			      C                         ; Uses register passed parameters:
+			      C                         ;      esi = x-coordinate
+			      C                         ;      edi = y-coordinate
+			      C 
+			      C DrawAllStars PROTO STDCALL ; Routine which uses DrawStarReg to create all the stars
+			      C 
+			      C EXTERNDEF STDCALL WinMain : NEAR
+			      C 
+				    include blit.inc
+			      C ; #########################################################################
+			      C ;
+			      C ;   blit.inc - Includes for EECS205 Assignment 2
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C 
+ 00000010		      C _EECS205BITMAP STRUCT
+ 00000000  00000000	      C  dwWidth      DWORD  ?
+ 00000004  00000000	      C  dwHeight     DWORD  ?
+ 00000008  00		      C  bTransparent BYTE   ?
+ 00000009  00000003 [	      C               BYTE   3 DUP(?)
+	    00
+	   ]
+ 0000000C  00000000	      C  lpBytes      DWORD  ?
+			      C _EECS205BITMAP ENDS
+			      C 
+			      C EECS205BITMAP TYPEDEF _EECS205BITMAP
+			      C 
+			      C EXTERNDEF StarBitmap:EECS205BITMAP
+			      C EXTERNDEF dwPitch:DWORD
+			      C EXTERNDEF lpDisplayBits:DWORD
+			      C 
+			      C 
+			      C BlitReg PROTO STDCALL   ; Renders a bitmap to the 2D drawing space
+			      C                         ; Uses register passed parameters:
+			      C                         ;      esi = x-coordinate (of image center)
+			      C                         ;      edi = y-coordinate (of image center)
+			      C 			;      edx = pointer to the bitmap to draw
+			      C 
+			      C 
+			      C 
+				    include trig.inc
+			      C ; #########################################################################
+			      C ;
+			      C ;   trig.inc - Includes for EECS205 Assignment 3
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C ;; FIXED is a fixed point number (16 bit integer and 16 bit fractional components)
+			      C ;;    To convert a FIXED value in eax into an integer:  sar eax, 16
+			      C ;;    To convert an integer value in eax into a FIXED:  shl eax, 16
+			      C FIXED TYPEDEF DWORD
+			      C 
+			      C EXTERNDEF SINTAB:WORD 
+			      C 
+			      C FixedSin PROTO STDCALL dwAngle:FIXED 
+			      C FixedCos PROTO STDCALL dwAngle:FIXED
+			      C 
+			      C 
+			      C 
+			      C 
+			      C 
+				    include rotate.inc	
+			      C ; #########################################################################
+			      C ;
+			      C ;   rotate.inc - Includes for EECS205 Assignment 3
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C include blit.inc
+			      C ; #########################################################################
+			      C ;
+			      C ;   blit.inc - Includes for EECS205 Assignment 2
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C 
+			      C _EECS205BITMAP STRUCT
+			      C  dwWidth      DWORD  ?
+			      C  dwHeight     DWORD  ?
+			      C  bTransparent BYTE   ?
+			      C               BYTE   3 DUP(?)
+			      C  lpBytes      DWORD  ?
+			      C _EECS205BITMAP ENDS
+			      C 
+			      C EECS205BITMAP TYPEDEF _EECS205BITMAP
+			      C 
+			      C EXTERNDEF StarBitmap:EECS205BITMAP
+			      C EXTERNDEF dwPitch:DWORD
+			      C EXTERNDEF lpDisplayBits:DWORD
+			      C 
+			      C 
+			      C BlitReg PROTO STDCALL   ; Renders a bitmap to the 2D drawing space
+			      C                         ; Uses register passed parameters:
+			      C                         ;      esi = x-coordinate (of image center)
+			      C                         ;      edi = y-coordinate (of image center)
+			      C 			;      edx = pointer to the bitmap to draw
+			      C 
+			      C 
+			      C 
+			      C 
+			      C BasicBlit PROTO STDCALL lpBmp:PTR EECS205BITMAP, xcenter:DWORD, ycenter:DWORD
+			      C 
+			      C RotateBlit PROTO STDCALL lpBmp:PTR EECS205BITMAP, xcenter:DWORD, ycenter:DWORD, angle:DWORD
+			      C 
+			      C FixedMult PROTO val1:FIXED, val2:FIXED
+			      C 
+				    include game.inc
+			      C ; #########################################################################
+			      C ;
+			      C ;   game.inc - Includes for EECS205 Assignment 4/5
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C ;; These are library routines that you will call (but do NOT have to implement)
+			      C BeginDraw PROTO
+			      C EndDraw PROTO
+			      C 
+			      C ;; You should not need to modify these prototypes (actually, it would probably be bad)
+			      C GameInit PROTO
+			      C GameMain PROTO mouseStatus:DWORD, keyDown:DWORD, keyUp:DWORD
+			      C 
+			      C ;; Useful Library Routines
+			      C DrawString PROTO x:DWORD, y:DWORD, string:PTR BYTE 
+			      C DrawInt PROTO x:DWORD, y:DWORD, value:DWORD
+			      C 
+			      C ;; Feel free to modify the following
+			      C GameRender PROTO
+			      C GameLogic PROTO key:DWORD, ship1:DWORD, ship2:DWORD, ship3:DWORD
+			      C 
+			      C EXTERNDEF lpTyroneBmp : DWORD
+			      C 
+ 0000001C		      C _SPRITE STRUCT
+ 00000000  00000000	      C 	x DWORD ?
+ 00000004  00000000	      C 	y DWORD ?
+ 00000008  00000000	      C 	a DWORD ?
+ 0000000C  00000000	      C 	xx DWORD ?
+ 00000010  00000000	      C 	yy DWORD ?
+ 00000014  00000000	      C 	aa  DWORD ?
+ 00000018  00000000	      C 	bmpPtr DWORD ?
+			      C _SPRITE ENDS
+			      C 
+			      C SPRITE TYPEDEF _SPRITE
+			      C 
+			      C EXTERNDEF asteroid1:SPRITE
+			      C EXTERNDEF asteroid2:SPRITE
+			      C EXTERNDEF ship:SPRITE
+			      C 
+			      C 
+				    include keys.inc		
+			      C ;;
+			      C ;; keys.inc -- These are virtual key codes to
+			      C ;; captuer any keystrokes you desire
+			      C 
+ = 00000008		      C VK_BACK                              equ 8h
+ = 00000003		      C VK_CANCEL                            equ 3h
+ = 00000014		      C VK_CAPITAL                           equ 14h
+ = 0000000C		      C VK_CLEAR                             equ 0Ch
+ = 00000011		      C VK_CONTROL                           equ 11h
+ = 0000002E		      C VK_DELETE                            equ 2Eh
+ = 00000028		      C VK_DOWN                              equ 28h
+ = 00000023		      C VK_END                               equ 23h
+ = 0000001B		      C VK_ESCAPE                            equ 1Bh
+ = 0000002B		      C VK_EXECUTE                           equ 2Bh
+ = 0000002F		      C VK_HELP                              equ 2Fh
+ = 00000024		      C VK_HOME                              equ 24h
+ = 0000002D		      C VK_INSERT                            equ 2Dh
+ = 00000001		      C VK_LBUTTON                           equ 1h
+ = 00000025		      C VK_LEFT                              equ 25h
+ = 00000004		      C VK_MBUTTON                           equ 4h
+ = 00000012		      C VK_MENU                              equ 12h
+ = 00000022		      C VK_NEXT                              equ 22h
+ = 00000013		      C VK_PAUSE                             equ 13h
+ = 00000022		      C VK_PGDN                              equ 22h
+ = 00000021		      C VK_PGUP                              equ 21h
+ = 0000002A		      C VK_PRINT                             equ 2Ah
+ = 00000021		      C VK_PRIOR                             equ 21h
+ = 00000002		      C VK_RBUTTON                           equ 2h
+ = 0000000D		      C VK_RETURN                            equ 0Dh
+ = 00000027		      C VK_RIGHT                             equ 27h
+ = 00000029		      C VK_SELECT                            equ 29h
+ = 00000010		      C VK_SHIFT                             equ 10h
+ = 0000002C		      C VK_SNAPSHOT                          equ 2Ch
+ = 00000020		      C VK_SPACE                             equ 20h
+ = 00000009		      C VK_TAB                               equ 9h
+ = 00000026		      C VK_UP                                equ 26h
+ = 00000060		      C VK_NUMPAD0                           equ 60h
+ = 00000061		      C VK_NUMPAD1                           equ 61h
+ = 00000062		      C VK_NUMPAD2                           equ 62h
+ = 00000063		      C VK_NUMPAD3                           equ 63h
+ = 00000064		      C VK_NUMPAD4                           equ 64h
+ = 00000065		      C VK_NUMPAD5                           equ 65h
+ = 00000066		      C VK_NUMPAD6                           equ 66h
+ = 00000067		      C VK_NUMPAD7                           equ 67h
+ = 00000068		      C VK_NUMPAD8                           equ 68h
+ = 00000069		      C VK_NUMPAD9                           equ 69h
+ = 0000006A		      C VK_MULTIPLY                          equ 6Ah
+ = 0000006B		      C VK_ADD                               equ 6Bh
+ = 0000006C		      C VK_SEPARATOR                         equ 6Ch
+ = 0000006D		      C VK_SUBTRACT                          equ 6Dh
+ = 0000006E		      C VK_DECIMAL                           equ 6Eh
+ = 0000006F		      C VK_DIVIDE                            equ 6Fh
+ = 00000070		      C VK_F1                                equ 70h
+ = 00000071		      C VK_F2                                equ 71h
+ = 00000072		      C VK_F3                                equ 72h
+ = 00000073		      C VK_F4                                equ 73h
+ = 00000074		      C VK_F5                                equ 74h
+ = 00000075		      C VK_F6                                equ 75h
+ = 00000076		      C VK_F7                                equ 76h
+ = 00000077		      C VK_F8                                equ 77h
+ = 00000078		      C VK_F9                                equ 78h
+ = 00000079		      C VK_F10                               equ 79h
+ = 0000007A		      C VK_F11                               equ 7Ah
+ = 0000007B		      C VK_F12                               equ 7Bh
+ = 0000007C		      C VK_F13                               equ 7Ch
+ = 0000007D		      C VK_F14                               equ 7Dh
+ = 0000007E		      C VK_F15                               equ 7Eh
+ = 0000007F		      C VK_F16                               equ 7Fh
+ = 00000080		      C VK_F17                               equ 80h
+ = 00000081		      C VK_F18                               equ 81h
+ = 00000082		      C VK_F19                               equ 82h
+ = 00000083		      C VK_F20                               equ 83h
+ = 00000084		      C VK_F21                               equ 84h
+ = 00000085		      C VK_F22                               equ 85h
+ = 00000086		      C VK_F23                               equ 86h
+ = 00000087		      C VK_F24                               equ 87h
+ = 00000090		      C VK_NUMLOCK                           equ 90h
+ = 00000091		      C VK_SCROLL                            equ 91h
+ = 000000A0		      C VK_LSHIFT                            equ 0A0h
+ = 000000A1		      C VK_RSHIFT                            equ 0A1h
+ = 000000A2		      C VK_LCONTROL                          equ 0A2h
+ = 000000A3		      C VK_RCONTROL                          equ 0A3h
+ = 000000A4		      C VK_LMENU                             equ 0A4h
+ = 000000A5		      C VK_RMENU                             equ 0A5h
+ = 000000F6		      C VK_ATTN                              equ 0F6h
+ = 000000F7		      C VK_CRSEL                             equ 0F7h
+ = 000000F8		      C VK_EXSEL                             equ 0F8h
+ = 000000F9		      C VK_EREOF                             equ 0F9h
+ = 000000FA		      C VK_PLAY                              equ 0FAh
+ = 000000FB		      C VK_ZOOM                              equ 0FBh
+ = 000000FC		      C VK_NONAME                            equ 0FCh
+ = 000000FD		      C VK_PA1                               equ 0FDh
+ = 000000FE		      C VK_OEM_CLEAR                         equ 0FEh
+ = 00000030		      C VK_0						 equ 30h
+ = 00000031		      C VK_1						 equ 31h
+ = 00000032		      C VK_2						 equ 32h
+ = 00000033		      C VK_3						 equ 33h
+ = 00000034		      C VK_4						 equ 34h
+ = 00000035		      C VK_5						 equ 35h
+ = 00000036		      C VK_6						 equ 36h
+ = 00000037		      C VK_7						 equ 37h
+ = 00000038		      C VK_8						 equ 38h
+ = 00000039		      C VK_9						 equ 39h
+ = 00000041		      C VK_A						 equ 41h
+ = 00000042		      C VK_B						 equ 42h
+ = 00000043		      C VK_C						 equ 43h
+ = 00000044		      C VK_D						 equ 44h
+ = 00000045		      C VK_E						 equ 45h
+ = 00000046		      C VK_F						 equ 46h
+ = 00000047		      C VK_G						 equ 47h
+ = 00000048		      C VK_H						 equ 48h
+ = 00000049		      C VK_I						 equ 49h
+ = 0000004A		      C VK_J						 equ 4Ah
+ = 0000004B		      C VK_K						 equ 4Bh
+ = 0000004C		      C VK_L						 equ 4Ch
+ = 0000004D		      C VK_M						 equ 4Dh
+ = 0000004E		      C VK_N						 equ 4Eh
+ = 0000004F		      C VK_O						 equ 4Fh
+ = 00000050		      C VK_P						 equ 50h
+ = 00000051		      C VK_Q						 equ 51h
+ = 00000052		      C VK_R						 equ 52h
+ = 00000053		      C VK_S						 equ 53h
+ = 00000054		      C VK_T						 equ 54h
+ = 00000055		      C VK_U						 equ 55h
+ = 00000056		      C VK_V						 equ 56h
+ = 00000057		      C VK_W						 equ 57h
+ = 00000058		      C VK_X						 equ 58h
+ = 00000059		      C VK_Y						 equ 59h
+ = 0000005A		      C VK_Z						 equ 5Ah
+			      C 
+					
+ 00000000			.DATA
+
+
+ = 00000064			FIXED_ANGLE_ROTATE = 00000100
+
+ 00000000			.CODE
+
+				;; Define the function GameLogic
+
+				MoveShip PROTO shipArg: PTR SPRITE, key:DWORD
+
+ 00000000			GameLogic PROC USES ecx key:DWORD, ship1:DWORD, ship2:DWORD, ship3:DWORD
+
+ 00000004  8B 4D 08			mov ecx, key
+ 00000007  83 F9 26			cmp ecx, VK_UP 		;going to use the up key to animate the ship to move forward by switching sprites
+ 0000000A  75 2A			jne sprite_same
+ 0000000C  8B 4D 0C			mov ecx, ship1
+ 0000000F  3B 0D 00000018 E		cmp ecx, ship.bmpPtr
+ 00000015  74 0B			je changeship2
+ 00000017  8B 4D 10			mov ecx, ship2
+ 0000001A  3B 0D 00000018 E		cmp ecx, ship.bmpPtr
+ 00000020  74 0B			je changeship3
+					
+ 00000022			changeship2:
+ 00000022  8B 4D 10			mov ecx, ship2
+ 00000025  89 0D 00000018 E		mov ship.bmpPtr, ecx
+ 0000002B  EB 09			jmp sprite_same
+
+ 0000002D			changeship3:
+ 0000002D  8B 4D 14			mov ecx, ship3
+ 00000030  89 0D 00000018 E		mov ship.bmpPtr, ecx
+					
+ 00000036			sprite_same:	
+					INVOKE MoveShip, offset ship, key
+ 00000043  83 05 00000008 E		add asteroid1.a, FIXED_ANGLE_ROTATE
+	   64
+ 0000004A  83 2D 00000008 E		sub asteroid2.a, FIXED_ANGLE_ROTATE
+	   64
+
+					ret
+ 00000056			GameLogic ENDP
+
+ 00000056			MoveShip PROC USES ebx ecx shipArg:PTR SPRITE, key: DWORD
+ 0000005B  8B 4D 0C			mov ecx, key
+ 0000005E  83 F9 25			cmp ecx, VK_LEFT
+ 00000061  74 07			je left
+ 00000063  83 F9 27			cmp ecx, VK_RIGHT
+ 00000066  74 11			je right
+ 00000068  EB 1F			jmp done
+
+ 0000006A			left:
+ 0000006A  8B 5D 08			mov ebx, shipArg
+ 0000006D  8B 0B			mov ecx, (SPRITE PTR[ebx]).x
+ 0000006F  83 F9 14			cmp ecx, 20 		;check so you don't go out of bounds
+ 00000072  7C 15			jl done
+ 00000074  83 2B 0A			sub (SPRITE PTR[ebx]).x, 10;	
+ 00000077  EB 10			jmp done;
+
+ 00000079			right: 
+ 00000079  8B 5D 08			mov ebx, shipArg
+ 0000007C  8B 0B			mov ecx, (SPRITE PTR[ebx]).x
+ 0000007E  81 F9 00000267		cmp ecx, 615		;check so you don't go out of bounds
+ 00000084  7F 03			jg done
+ 00000086  83 03 0A			add (SPRITE PTR[ebx]).x, 10;
+
+ 00000089			done:
+					ret
+ 0000008F			MoveShip ENDP
+					
+				END
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/01/14 20:50:31
+logic.asm						     Symbols 2 - 1
+
+
+
+
+Structures and Unions:
+
+                N a m e                  Size
+                                         Offset      Type
+
+_EECS205BITMAP . . . . . . . . .	 00000010
+  dwWidth  . . . . . . . . . . .	 00000000	 DWord
+  dwHeight . . . . . . . . . . .	 00000004	 DWord
+  bTransparent . . . . . . . . .	 00000008	 Byte
+  lpBytes  . . . . . . . . . . .	 0000000C	 DWord
+_SPRITE  . . . . . . . . . . . .	 0000001C
+  x  . . . . . . . . . . . . . .	 00000000	 DWord
+  y  . . . . . . . . . . . . . .	 00000004	 DWord
+  a  . . . . . . . . . . . . . .	 00000008	 DWord
+  xx . . . . . . . . . . . . . .	 0000000C	 DWord
+  yy . . . . . . . . . . . . . .	 00000010	 DWord
+  aa . . . . . . . . . . . . . .	 00000014	 DWord
+  bmpPtr . . . . . . . . . . . .	 00000018	 DWord
+
+
+Types:
+
+                N a m e                  Size     Attr
+
+EECS205BITMAP  . . . . . . . . .	 00000010     _EECS205BITMAP 
+FIXED  . . . . . . . . . . . . .	 00000004     DWord 
+SPRITE . . . . . . . . . . . . .	 0000001C     _SPRITE 
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000000 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 0000008F Para	  Public  'CODE'	
+
+
+Procedures,  parameters and locals:
+
+                N a m e                 Type     Value    Attr
+
+BasicBlit  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+BeginDraw  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+BlitReg  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DrawAllStars . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DrawInt  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DrawStarReg  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DrawString . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+EndDraw  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FixedCos . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FixedMult  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FixedSin . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GameInit . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GameLogic  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000056 Public STDCALL
+  key  . . . . . . . . . . . . .	DWord	 bp + 00000008
+  ship1  . . . . . . . . . . . .	DWord	 bp + 0000000C
+  ship2  . . . . . . . . . . . .	DWord	 bp + 00000010
+  ship3  . . . . . . . . . . . .	DWord	 bp + 00000014
+  changeship2  . . . . . . . . .	L Near	 00000022 _TEXT	
+  changeship3  . . . . . . . . .	L Near	 0000002D _TEXT	
+  sprite_same  . . . . . . . . .	L Near	 00000036 _TEXT	
+GameMain . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GameRender . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MoveShip . . . . . . . . . . . .	P Near	 00000056 _TEXT	Length= 00000039 Public STDCALL
+  shipArg  . . . . . . . . . . .	DWord	 bp + 00000008
+  key  . . . . . . . . . . . . .	DWord	 bp + 0000000C
+  left . . . . . . . . . . . . .	L Near	 0000006A _TEXT	
+  right  . . . . . . . . . . . .	L Near	 00000079 _TEXT	
+  done . . . . . . . . . . . . .	L Near	 00000089 _TEXT	
+RotateBlit . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000003h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+FIXED_ANGLE_ROTATE . . . . . . .	Number	 00000064h   
+SINTAB . . . . . . . . . . . . .	Word	 00000000 FLAT	External STDCALL
+StarBitmap . . . . . . . . . . .	_EECS205BITMAP  00000000 FLAT	External STDCALL
+VK_0 . . . . . . . . . . . . . .	Number	 00000030h   
+VK_1 . . . . . . . . . . . . . .	Number	 00000031h   
+VK_2 . . . . . . . . . . . . . .	Number	 00000032h   
+VK_3 . . . . . . . . . . . . . .	Number	 00000033h   
+VK_4 . . . . . . . . . . . . . .	Number	 00000034h   
+VK_5 . . . . . . . . . . . . . .	Number	 00000035h   
+VK_6 . . . . . . . . . . . . . .	Number	 00000036h   
+VK_7 . . . . . . . . . . . . . .	Number	 00000037h   
+VK_8 . . . . . . . . . . . . . .	Number	 00000038h   
+VK_9 . . . . . . . . . . . . . .	Number	 00000039h   
+VK_ADD . . . . . . . . . . . . .	Number	 0000006Bh   
+VK_ATTN  . . . . . . . . . . . .	Number	 000000F6h   
+VK_A . . . . . . . . . . . . . .	Number	 00000041h   
+VK_BACK  . . . . . . . . . . . .	Number	 00000008h   
+VK_B . . . . . . . . . . . . . .	Number	 00000042h   
+VK_CANCEL  . . . . . . . . . . .	Number	 00000003h   
+VK_CAPITAL . . . . . . . . . . .	Number	 00000014h   
+VK_CLEAR . . . . . . . . . . . .	Number	 0000000Ch   
+VK_CONTROL . . . . . . . . . . .	Number	 00000011h   
+VK_CRSEL . . . . . . . . . . . .	Number	 000000F7h   
+VK_C . . . . . . . . . . . . . .	Number	 00000043h   
+VK_DECIMAL . . . . . . . . . . .	Number	 0000006Eh   
+VK_DELETE  . . . . . . . . . . .	Number	 0000002Eh   
+VK_DIVIDE  . . . . . . . . . . .	Number	 0000006Fh   
+VK_DOWN  . . . . . . . . . . . .	Number	 00000028h   
+VK_D . . . . . . . . . . . . . .	Number	 00000044h   
+VK_END . . . . . . . . . . . . .	Number	 00000023h   
+VK_EREOF . . . . . . . . . . . .	Number	 000000F9h   
+VK_ESCAPE  . . . . . . . . . . .	Number	 0000001Bh   
+VK_EXECUTE . . . . . . . . . . .	Number	 0000002Bh   
+VK_EXSEL . . . . . . . . . . . .	Number	 000000F8h   
+VK_E . . . . . . . . . . . . . .	Number	 00000045h   
+VK_F10 . . . . . . . . . . . . .	Number	 00000079h   
+VK_F11 . . . . . . . . . . . . .	Number	 0000007Ah   
+VK_F12 . . . . . . . . . . . . .	Number	 0000007Bh   
+VK_F13 . . . . . . . . . . . . .	Number	 0000007Ch   
+VK_F14 . . . . . . . . . . . . .	Number	 0000007Dh   
+VK_F15 . . . . . . . . . . . . .	Number	 0000007Eh   
+VK_F16 . . . . . . . . . . . . .	Number	 0000007Fh   
+VK_F17 . . . . . . . . . . . . .	Number	 00000080h   
+VK_F18 . . . . . . . . . . . . .	Number	 00000081h   
+VK_F19 . . . . . . . . . . . . .	Number	 00000082h   
+VK_F1  . . . . . . . . . . . . .	Number	 00000070h   
+VK_F20 . . . . . . . . . . . . .	Number	 00000083h   
+VK_F21 . . . . . . . . . . . . .	Number	 00000084h   
+VK_F22 . . . . . . . . . . . . .	Number	 00000085h   
+VK_F23 . . . . . . . . . . . . .	Number	 00000086h   
+VK_F24 . . . . . . . . . . . . .	Number	 00000087h   
+VK_F2  . . . . . . . . . . . . .	Number	 00000071h   
+VK_F3  . . . . . . . . . . . . .	Number	 00000072h   
+VK_F4  . . . . . . . . . . . . .	Number	 00000073h   
+VK_F5  . . . . . . . . . . . . .	Number	 00000074h   
+VK_F6  . . . . . . . . . . . . .	Number	 00000075h   
+VK_F7  . . . . . . . . . . . . .	Number	 00000076h   
+VK_F8  . . . . . . . . . . . . .	Number	 00000077h   
+VK_F9  . . . . . . . . . . . . .	Number	 00000078h   
+VK_F . . . . . . . . . . . . . .	Number	 00000046h   
+VK_G . . . . . . . . . . . . . .	Number	 00000047h   
+VK_HELP  . . . . . . . . . . . .	Number	 0000002Fh   
+VK_HOME  . . . . . . . . . . . .	Number	 00000024h   
+VK_H . . . . . . . . . . . . . .	Number	 00000048h   
+VK_INSERT  . . . . . . . . . . .	Number	 0000002Dh   
+VK_I . . . . . . . . . . . . . .	Number	 00000049h   
+VK_J . . . . . . . . . . . . . .	Number	 0000004Ah   
+VK_K . . . . . . . . . . . . . .	Number	 0000004Bh   
+VK_LBUTTON . . . . . . . . . . .	Number	 00000001h   
+VK_LCONTROL  . . . . . . . . . .	Number	 000000A2h   
+VK_LEFT  . . . . . . . . . . . .	Number	 00000025h   
+VK_LMENU . . . . . . . . . . . .	Number	 000000A4h   
+VK_LSHIFT  . . . . . . . . . . .	Number	 000000A0h   
+VK_L . . . . . . . . . . . . . .	Number	 0000004Ch   
+VK_MBUTTON . . . . . . . . . . .	Number	 00000004h   
+VK_MENU  . . . . . . . . . . . .	Number	 00000012h   
+VK_MULTIPLY  . . . . . . . . . .	Number	 0000006Ah   
+VK_M . . . . . . . . . . . . . .	Number	 0000004Dh   
+VK_NEXT  . . . . . . . . . . . .	Number	 00000022h   
+VK_NONAME  . . . . . . . . . . .	Number	 000000FCh   
+VK_NUMLOCK . . . . . . . . . . .	Number	 00000090h   
+VK_NUMPAD0 . . . . . . . . . . .	Number	 00000060h   
+VK_NUMPAD1 . . . . . . . . . . .	Number	 00000061h   
+VK_NUMPAD2 . . . . . . . . . . .	Number	 00000062h   
+VK_NUMPAD3 . . . . . . . . . . .	Number	 00000063h   
+VK_NUMPAD4 . . . . . . . . . . .	Number	 00000064h   
+VK_NUMPAD5 . . . . . . . . . . .	Number	 00000065h   
+VK_NUMPAD6 . . . . . . . . . . .	Number	 00000066h   
+VK_NUMPAD7 . . . . . . . . . . .	Number	 00000067h   
+VK_NUMPAD8 . . . . . . . . . . .	Number	 00000068h   
+VK_NUMPAD9 . . . . . . . . . . .	Number	 00000069h   
+VK_N . . . . . . . . . . . . . .	Number	 0000004Eh   
+VK_OEM_CLEAR . . . . . . . . . .	Number	 000000FEh   
+VK_O . . . . . . . . . . . . . .	Number	 0000004Fh   
+VK_PA1 . . . . . . . . . . . . .	Number	 000000FDh   
+VK_PAUSE . . . . . . . . . . . .	Number	 00000013h   
+VK_PGDN  . . . . . . . . . . . .	Number	 00000022h   
+VK_PGUP  . . . . . . . . . . . .	Number	 00000021h   
+VK_PLAY  . . . . . . . . . . . .	Number	 000000FAh   
+VK_PRINT . . . . . . . . . . . .	Number	 0000002Ah   
+VK_PRIOR . . . . . . . . . . . .	Number	 00000021h   
+VK_P . . . . . . . . . . . . . .	Number	 00000050h   
+VK_Q . . . . . . . . . . . . . .	Number	 00000051h   
+VK_RBUTTON . . . . . . . . . . .	Number	 00000002h   
+VK_RCONTROL  . . . . . . . . . .	Number	 000000A3h   
+VK_RETURN  . . . . . . . . . . .	Number	 0000000Dh   
+VK_RIGHT . . . . . . . . . . . .	Number	 00000027h   
+VK_RMENU . . . . . . . . . . . .	Number	 000000A5h   
+VK_RSHIFT  . . . . . . . . . . .	Number	 000000A1h   
+VK_R . . . . . . . . . . . . . .	Number	 00000052h   
+VK_SCROLL  . . . . . . . . . . .	Number	 00000091h   
+VK_SELECT  . . . . . . . . . . .	Number	 00000029h   
+VK_SEPARATOR . . . . . . . . . .	Number	 0000006Ch   
+VK_SHIFT . . . . . . . . . . . .	Number	 00000010h   
+VK_SNAPSHOT  . . . . . . . . . .	Number	 0000002Ch   
+VK_SPACE . . . . . . . . . . . .	Number	 00000020h   
+VK_SUBTRACT  . . . . . . . . . .	Number	 0000006Dh   
+VK_S . . . . . . . . . . . . . .	Number	 00000053h   
+VK_TAB . . . . . . . . . . . . .	Number	 00000009h   
+VK_T . . . . . . . . . . . . . .	Number	 00000054h   
+VK_UP  . . . . . . . . . . . . .	Number	 00000026h   
+VK_U . . . . . . . . . . . . . .	Number	 00000055h   
+VK_V . . . . . . . . . . . . . .	Number	 00000056h   
+VK_W . . . . . . . . . . . . . .	Number	 00000057h   
+VK_X . . . . . . . . . . . . . .	Number	 00000058h   
+VK_Y . . . . . . . . . . . . . .	Number	 00000059h   
+VK_ZOOM  . . . . . . . . . . . .	Number	 000000FBh   
+VK_Z . . . . . . . . . . . . . .	Number	 0000005Ah   
+WinMain  . . . . . . . . . . . .	L Near	 00000000 FLAT	External STDCALL
+asteroid1  . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
+asteroid2  . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
+dwPitch  . . . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+lpDisplayBits  . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+lpTyroneBmp  . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+ship . . . . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
+
+	   0 Warnings
+	   0 Errors

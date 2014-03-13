@@ -1,0 +1,255 @@
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/01/14 20:50:31
+trig.asm						     Page 1 - 1
+
+
+				; #########################################################################
+				;
+				;   trig.asm - Assembly file for EECS205 Assignment 3
+				;
+				;
+				; #########################################################################
+
+				      .586
+				      .MODEL FLAT,STDCALL
+				      .STACK 4096
+				      option casemap :none  ; case sensitive
+
+				    include trig.inc
+			      C ; #########################################################################
+			      C ;
+			      C ;   trig.inc - Includes for EECS205 Assignment 3
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C ;; FIXED is a fixed point number (16 bit integer and 16 bit fractional components)
+			      C ;;    To convert a FIXED value in eax into an integer:  sar eax, 16
+			      C ;;    To convert an integer value in eax into a FIXED:  shl eax, 16
+			      C FIXED TYPEDEF DWORD
+			      C 
+			      C EXTERNDEF SINTAB:WORD 
+			      C 
+			      C FixedSin PROTO STDCALL dwAngle:FIXED 
+			      C FixedCos PROTO STDCALL dwAngle:FIXED
+			      C 
+			      C 
+			      C 
+			      C 
+			      C 
+				    include rotate.inc
+			      C ; #########################################################################
+			      C ;
+			      C ;   rotate.inc - Includes for EECS205 Assignment 3
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C include blit.inc
+			      C ; #########################################################################
+			      C ;
+			      C ;   blit.inc - Includes for EECS205 Assignment 2
+			      C ;
+			      C ;
+			      C ; #########################################################################
+			      C 
+			      C 
+ 00000010		      C _EECS205BITMAP STRUCT
+ 00000000  00000000	      C  dwWidth      DWORD  ?
+ 00000004  00000000	      C  dwHeight     DWORD  ?
+ 00000008  00		      C  bTransparent BYTE   ?
+ 00000009  00000003 [	      C               BYTE   3 DUP(?)
+	    00
+	   ]
+ 0000000C  00000000	      C  lpBytes      DWORD  ?
+			      C _EECS205BITMAP ENDS
+			      C 
+			      C EECS205BITMAP TYPEDEF _EECS205BITMAP
+			      C 
+			      C EXTERNDEF StarBitmap:EECS205BITMAP
+			      C EXTERNDEF dwPitch:DWORD
+			      C EXTERNDEF lpDisplayBits:DWORD
+			      C 
+			      C 
+			      C BlitReg PROTO STDCALL   ; Renders a bitmap to the 2D drawing space
+			      C                         ; Uses register passed parameters:
+			      C                         ;      esi = x-coordinate (of image center)
+			      C                         ;      edi = y-coordinate (of image center)
+			      C 			;      edx = pointer to the bitmap to draw
+			      C 
+			      C 
+			      C 
+			      C 
+			      C BasicBlit PROTO STDCALL lpBmp:PTR EECS205BITMAP, xcenter:DWORD, ycenter:DWORD
+			      C 
+			      C RotateBlit PROTO STDCALL lpBmp:PTR EECS205BITMAP, xcenter:DWORD, ycenter:DWORD, angle:DWORD
+			      C 
+			      C FixedMult PROTO val1:FIXED, val2:FIXED
+			      C 
+
+ 00000000			.DATA
+
+				;;  These are some useful constants (fixed point values that correspond to important angles)
+ = 0001921F			PI_HALF = 102943           	;;  PI / 2
+ = 0003243F			PI =  205887	                ;;  PI 
+ = 0006487E			TWO_PI	= 411774                ;;  2 * PI 
+ = 00517CC1			PI_INC_RECIP =  5340353        	;;  256 / PI   (use this to find the table entry for a given angle
+					                        ;;              it is easier to use than divison would be)
+
+ 00000000			.CODE
+
+ 00000000			FixedSin PROC STDCALL USES ebx ecx edx esi dwAngle:FIXED
+
+					LOCAL isNegative:DWORD
+ 0000000A  8B 5D 08			mov ebx, dwAngle
+ 0000000D  C7 45 FC			mov isNegative, 0	;boolean for whether or not to flip the answer
+	   00000000
+					
+ 00000014  83 FB 00			cmp ebx, 0	;ebx has current version of dwAngle
+ 00000017  7F 05			jg greater2pi
+ 00000019  F7 DB			neg ebx 		;it's negative so flip and set boolean
+ 0000001B  F7 55 FC			not isNegative
+
+ 0000001E			greater2pi:
+ 0000001E  B9 0006487E			mov ecx, TWO_PI
+ 00000023  3B D9			cmp ebx, ecx
+ 00000025  7E 10			jle greaterthanpi			;less than 2 pi
+
+ 00000027			looping:				;greater than 2 pi so loop til less than
+ 00000027  81 FB 0006487E		cmp ebx, TWO_PI
+ 0000002D  7E 08			jle greaterthanpi
+ 0000002F  81 EB 0006487E		sub ebx, TWO_PI
+ 00000035  EB F0			jmp looping
+ 00000037			endloop:	
+
+ 00000037			greaterthanpi:
+ 00000037  81 FB 0003243F		cmp ebx, PI
+ 0000003D  7E 09			jle greaterthanpiover2
+ 0000003F  81 EB 0003243F		sub ebx, PI 		;subtract pi from angle
+ 00000045  F7 55 FC			not isNegative		;flip negative boolean
+
+ 00000048			greaterthanpiover2:
+ 00000048  81 FB 0001921F		cmp ebx, PI_HALF
+ 0000004E  7E 09			jle quadrant1
+
+ 00000050  B9 0003243F			mov ecx, PI
+ 00000055  2B CB			sub ecx, ebx 		;subtract angle from Pi
+ 00000057  8B D9			mov ebx, ecx
+						
+ 00000059			quadrant1:
+					;; get value from table (arr of WORDs)
+ 00000059  BE 00517CC1			mov esi, PI_INC_RECIP
+ 0000005E  33 D2			xor edx, edx
+					INVOKE FixedMult, esi, ebx ;multiply dwAngle by PI_INC_RECIP to get table entry
+ 00000067  C1 F8 10			sar eax, 16 		;convert to int so have table entry index
+ 0000006A  D1 E0			sal eax, 1 		;multiply index by 2 to get number of bytes to go in table (table is WORD)
+ 0000006C  33 C9			xor ecx, ecx		;clear ecx
+ 0000006E  66| 8B 88			mov cx, [SINTAB + eax] ;put correct sin table value into ecx
+	   00000000 E
+ 00000075  8B C1			mov eax, ecx 		;put return value in eax
+ 00000077  EB 00			jmp almostdone
+					
+ 00000079			almostdone:
+ 00000079  8B 55 FC			mov edx, isNegative	;if value was originally negative or in quadrant3 or 4, make negative before ret
+ 0000007C  83 FA 00			cmp edx, 0
+ 0000007F  74 02			jz done
+ 00000081  F7 D8			neg eax
+					
+ 00000083			done:	
+					ret
+
+ 0000008B			FixedSin ENDP
+
+ 0000008B			FixedCos PROC STDCALL USES ebx dwAngle:FIXED
+
+ 0000008F  8B 5D 08			mov ebx, dwAngle
+ 00000092  81 C3 0001921F		add ebx, PI_HALF
+					INVOKE FixedSin, ebx
+					ret
+
+ 000000A3			FixedCos ENDP
+					
+					
+				END
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/01/14 20:50:31
+trig.asm						     Symbols 2 - 1
+
+
+
+
+Structures and Unions:
+
+                N a m e                  Size
+                                         Offset      Type
+
+_EECS205BITMAP . . . . . . . . .	 00000010
+  dwWidth  . . . . . . . . . . .	 00000000	 DWord
+  dwHeight . . . . . . . . . . .	 00000004	 DWord
+  bTransparent . . . . . . . . .	 00000008	 Byte
+  lpBytes  . . . . . . . . . . .	 0000000C	 DWord
+
+
+Types:
+
+                N a m e                  Size     Attr
+
+EECS205BITMAP  . . . . . . . . .	 00000010     _EECS205BITMAP 
+FIXED  . . . . . . . . . . . . .	 00000004     DWord 
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000000 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 000000A3 Para	  Public  'CODE'	
+
+
+Procedures,  parameters and locals:
+
+                N a m e                 Type     Value    Attr
+
+BasicBlit  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+BlitReg  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FixedCos . . . . . . . . . . . .	P Near	 0000008B _TEXT	Length= 00000018 Public STDCALL
+  dwAngle  . . . . . . . . . . .	DWord	 bp + 00000008
+FixedMult  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FixedSin . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 0000008B Public STDCALL
+  dwAngle  . . . . . . . . . . .	DWord	 bp + 00000008
+  isNegative . . . . . . . . . .	DWord	 bp - 00000004
+  greater2pi . . . . . . . . . .	L Near	 0000001E _TEXT	
+  looping  . . . . . . . . . . .	L Near	 00000027 _TEXT	
+  endloop  . . . . . . . . . . .	L Near	 00000037 _TEXT	
+  greaterthanpi  . . . . . . . .	L Near	 00000037 _TEXT	
+  greaterthanpiover2 . . . . . .	L Near	 00000048 _TEXT	
+  quadrant1  . . . . . . . . . .	L Near	 00000059 _TEXT	
+  almostdone . . . . . . . . . .	L Near	 00000079 _TEXT	
+  done . . . . . . . . . . . . .	L Near	 00000083 _TEXT	
+RotateBlit . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000003h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+PI_HALF  . . . . . . . . . . . .	Number	 0001921Fh   
+PI_INC_RECIP . . . . . . . . . .	Number	 00517CC1h   
+PI . . . . . . . . . . . . . . .	Number	 0003243Fh   
+SINTAB . . . . . . . . . . . . .	Word	 00000000 FLAT	External STDCALL
+StarBitmap . . . . . . . . . . .	_EECS205BITMAP  00000000 FLAT	External STDCALL
+TWO_PI . . . . . . . . . . . . .	Number	 0006487Eh   
+dwPitch  . . . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+lpDisplayBits  . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+
+	   0 Warnings
+	   0 Errors
