@@ -1,4 +1,4 @@
-Microsoft (R) Macro Assembler Version 6.14.8444		    03/12/14 23:13:06
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/13/14 22:44:33
 stars.asm						     Page 1 - 1
 
 
@@ -121,7 +121,7 @@ stars.asm						     Page 1 - 1
  0000015E			DrawAllStars ENDP
 
 				END
-Microsoft (R) Macro Assembler Version 6.14.8444		    03/12/14 23:13:06
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/13/14 22:44:33
 stars.asm						     Symbols 2 - 1
 
 

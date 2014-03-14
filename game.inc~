@@ -19,7 +19,7 @@ DrawInt PROTO x:DWORD, y:DWORD, value:DWORD
 
 ;; Feel free to modify the following
 GameRender PROTO
-GameLogic PROTO key:DWORD, ship1:DWORD, ship2:DWORD, ship3:DWORD, exp:DWORD, a1:DWORD, a3:DWORD, cage:DWORD
+GameLogic PROTO key:DWORD, ship1:DWORD, ship2:DWORD, ship3:DWORD
 
 EXTERNDEF lpTyroneBmp : DWORD
 
@@ -27,8 +27,9 @@ _SPRITE STRUCT
 	x DWORD ?
 	y DWORD ?
 	a DWORD ?
-	alive DWORD 1
-	visible DWORD 1
+	xx DWORD ?
+	yy DWORD ?
+	aa  DWORD ?
 	bmpPtr DWORD ?
 _SPRITE ENDS
 
@@ -36,11 +37,5 @@ SPRITE TYPEDEF _SPRITE
 
 EXTERNDEF asteroid1:SPRITE
 EXTERNDEF asteroid2:SPRITE
-EXTERNDEF asteroid3:SPRITE
-EXTERNDEF cage1:SPRITE
-EXTERNDEF cage2:SPRITE
 EXTERNDEF ship:SPRITE
-EXTERNDEF projectile:SPRITE
-EXTERNDEF shot:DWORD
-EXTERNDEF over:DWORD
-EXTERNDEF num_loops:DWORD
+

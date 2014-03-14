@@ -1,4 +1,4 @@
-Microsoft (R) Macro Assembler Version 6.14.8444		    03/12/14 23:13:06
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/13/14 22:44:33
 render.asm						     Page 1 - 1
 
 
@@ -157,53 +157,113 @@ render.asm						     Page 1 - 1
 			      C 
 			      C ;; Feel free to modify the following
 			      C GameRender PROTO
-			      C GameLogic PROTO key:DWORD, ship1:DWORD, ship2:DWORD, ship3:DWORD
+			      C GameLogic PROTO key:DWORD, ship1:DWORD, ship2:DWORD, ship3:DWORD, exp:DWORD, a1:DWORD, a3:DWORD, cage:DWORD
 			      C 
 			      C EXTERNDEF lpTyroneBmp : DWORD
 			      C 
- 0000001C		      C _SPRITE STRUCT
+ 00000018		      C _SPRITE STRUCT
  00000000  00000000	      C 	x DWORD ?
  00000004  00000000	      C 	y DWORD ?
  00000008  00000000	      C 	a DWORD ?
- 0000000C  00000000	      C 	xx DWORD ?
- 00000010  00000000	      C 	yy DWORD ?
- 00000014  00000000	      C 	aa  DWORD ?
- 00000018  00000000	      C 	bmpPtr DWORD ?
+ 0000000C  00000001	      C 	alive DWORD 1
+ 00000010  00000001	      C 	visible DWORD 1
+ 00000014  00000000	      C 	bmpPtr DWORD ?
 			      C _SPRITE ENDS
 			      C 
 			      C SPRITE TYPEDEF _SPRITE
 			      C 
 			      C EXTERNDEF asteroid1:SPRITE
 			      C EXTERNDEF asteroid2:SPRITE
+			      C EXTERNDEF asteroid3:SPRITE
+			      C EXTERNDEF cage1:SPRITE
+			      C EXTERNDEF cage2:SPRITE
 			      C EXTERNDEF ship:SPRITE
-			      C 
+			      C EXTERNDEF projectile:SPRITE
+			      C EXTERNDEF shot:DWORD
+			      C EXTERNDEF over:DWORD
+			      C EXTERNDEF num_loops:DWORD
 			      C 
 
 
  00000000			.DATA
-
+ 00000000 47 61 6D 65 20	overString BYTE "Game Over. You Lost",0
+	   4F 76 65 72 2E
+	   20 59 6F 75 20
+	   4C 6F 73 74 00
+					
  00000000			.CODE
 
 				;; Define the function GameRender
 
  00000000			GameRender PROC 
-
+					
 					INVOKE BeginDraw
 
 					INVOKE DrawAllStars
 
-					INVOKE RotateBlit, asteroid1.bmpPtr, asteroid1.x, asteroid1.y, asteroid1.a
-					INVOKE RotateBlit, asteroid2.bmpPtr, asteroid2.x, asteroid2.y, asteroid2.a
-					INVOKE RotateBlit, ship.bmpPtr, ship.x, ship.y, ship.a
+ 0000000A  83 3D 00000000 E		cmp over, 1
+	   01
+ 00000011  75 19			jne a1
+					INVOKE DrawString, 250, 200, offset overString
+ 00000027  E9 0000012E			jmp done
 
+ 0000002C			a1:	
+ 0000002C  83 3D 00000004 E		cmp asteroid1.y, 0
+	   00
+ 00000033  7C 26			jl a2
+ 00000035  83 3D 00000010 E		cmp asteroid1.visible, 0
+	   00
+ 0000003C  74 1D			je a2
+					INVOKE RotateBlit, asteroid1.bmpPtr, asteroid1.x, asteroid1.y, asteroid1.a
+ 0000005B			a2:	
+ 0000005B  83 3D 00000004 E		cmp asteroid2.y, 0
+	   00
+ 00000062  7C 26			jl a3
+ 00000064  83 3D 00000010 E		cmp asteroid2.visible, 0
+	   00
+ 0000006B  74 1D			je a3
+					INVOKE RotateBlit, asteroid2.bmpPtr, asteroid2.x, asteroid2.y, asteroid2.a
+ 0000008A			a3:
+ 0000008A  83 3D 00000004 E		cmp asteroid3.y, 0
+	   00
+ 00000091  7C 26			jl c1
+ 00000093  83 3D 00000010 E		cmp asteroid3.visible, 0
+	   00
+ 0000009A  74 1D			je c1
+					INVOKE RotateBlit, asteroid3.bmpPtr, asteroid3.x, asteroid3.y, asteroid3.a
+ 000000B9			c1:
+ 000000B9  83 3D 00000004 E		cmp cage1.y, 0
+	   00
+ 000000C0  7C 26			jl c2
+ 000000C2  83 3D 00000010 E		cmp cage1.visible, 0
+	   00
+ 000000C9  74 1D			je c2
+					INVOKE RotateBlit, cage1.bmpPtr, cage1.x, cage1.y, cage1.a
+ 000000E8			c2:
+ 000000E8  83 3D 00000004 E		cmp cage2.y, 0
+	   00
+ 000000EF  7C 26			jl drawShip
+ 000000F1  83 3D 00000010 E		cmp cage2.visible, 0
+	   00
+ 000000F8  74 1D			je drawShip
+					INVOKE RotateBlit, cage2.bmpPtr, cage2.x, cage2.y, cage2.a
+ 00000117			drawShip:	
+					INVOKE RotateBlit, ship.bmpPtr, ship.x, ship.y, ship.a
+ 00000134  83 3D 00000000 E		cmp shot, 0
+	   00
+ 0000013B  74 1D			je done
+ 0000013D			drawProjectile:	
+					INVOKE RotateBlit, projectile.bmpPtr, projectile.x, projectile.y, projectile.a
+					
+ 0000015A			done:	
 					INVOKE EndDraw
 
- 00000066  C3			ret
- 00000067			GameRender ENDP
+ 0000015F  C3			ret
+ 00000160			GameRender ENDP
 
 
 				END
-Microsoft (R) Macro Assembler Version 6.14.8444		    03/12/14 23:13:06
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/13/14 22:44:33
 render.asm						     Symbols 2 - 1
 
 
@@ -219,14 +279,13 @@ _EECS205BITMAP . . . . . . . . .	 00000010
   dwHeight . . . . . . . . . . .	 00000004	 DWord
   bTransparent . . . . . . . . .	 00000008	 Byte
   lpBytes  . . . . . . . . . . .	 0000000C	 DWord
-_SPRITE  . . . . . . . . . . . .	 0000001C
+_SPRITE  . . . . . . . . . . . .	 00000018
   x  . . . . . . . . . . . . . .	 00000000	 DWord
   y  . . . . . . . . . . . . . .	 00000004	 DWord
   a  . . . . . . . . . . . . . .	 00000008	 DWord
-  xx . . . . . . . . . . . . . .	 0000000C	 DWord
-  yy . . . . . . . . . . . . . .	 00000010	 DWord
-  aa . . . . . . . . . . . . . .	 00000014	 DWord
-  bmpPtr . . . . . . . . . . . .	 00000018	 DWord
+  alive  . . . . . . . . . . . .	 0000000C	 DWord
+  visible  . . . . . . . . . . .	 00000010	 DWord
+  bmpPtr . . . . . . . . . . . .	 00000014	 DWord
 
 
 Types:
@@ -235,7 +294,7 @@ Types:
 
 EECS205BITMAP  . . . . . . . . .	 00000010     _EECS205BITMAP 
 FIXED  . . . . . . . . . . . . .	 00000004     DWord 
-SPRITE . . . . . . . . . . . . .	 0000001C     _SPRITE 
+SPRITE . . . . . . . . . . . . .	 00000018     _SPRITE 
 
 
 Segments and Groups:
@@ -244,8 +303,8 @@ Segments and Groups:
 
 FLAT . . . . . . . . . . . . . .	GROUP
 STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
-_DATA  . . . . . . . . . . . . .	32 Bit	 00000000 Para	  Public  'DATA'	
-_TEXT  . . . . . . . . . . . . .	32 Bit	 00000067 Para	  Public  'CODE'	
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000014 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 00000160 Para	  Public  'CODE'	
 
 
 Procedures,  parameters and locals:
@@ -266,7 +325,15 @@ FixedSin . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 GameInit . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 GameLogic  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 GameMain . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-GameRender . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000067 Public STDCALL
+GameRender . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000160 Public STDCALL
+  a1 . . . . . . . . . . . . . .	L Near	 0000002C _TEXT	
+  a2 . . . . . . . . . . . . . .	L Near	 0000005B _TEXT	
+  a3 . . . . . . . . . . . . . .	L Near	 0000008A _TEXT	
+  c1 . . . . . . . . . . . . . .	L Near	 000000B9 _TEXT	
+  c2 . . . . . . . . . . . . . .	L Near	 000000E8 _TEXT	
+  drawShip . . . . . . . . . . .	L Near	 00000117 _TEXT	
+  drawProjectile . . . . . . . .	L Near	 0000013D _TEXT	
+  done . . . . . . . . . . . . .	L Near	 0000015A _TEXT	
 RotateBlit . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 
 
@@ -288,10 +355,18 @@ StarBitmap . . . . . . . . . . .	_EECS205BITMAP  00000000 FLAT	External STDCALL
 WinMain  . . . . . . . . . . . .	L Near	 00000000 FLAT	External STDCALL
 asteroid1  . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
 asteroid2  . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
+asteroid3  . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
+cage1  . . . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
+cage2  . . . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
 dwPitch  . . . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
 lpDisplayBits  . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
 lpTyroneBmp  . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+num_loops  . . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+overString . . . . . . . . . . .	Byte	 00000000 _DATA	
+over . . . . . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+projectile . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
 ship . . . . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
+shot . . . . . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
 
 	   0 Warnings
 	   0 Errors

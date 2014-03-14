@@ -1,4 +1,4 @@
-Microsoft (R) Macro Assembler Version 6.14.8444		    03/12/14 23:13:06
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/13/14 22:44:33
 logic.asm						     Page 1 - 1
 
 
@@ -157,26 +157,31 @@ logic.asm						     Page 1 - 1
 			      C 
 			      C ;; Feel free to modify the following
 			      C GameRender PROTO
-			      C GameLogic PROTO key:DWORD, ship1:DWORD, ship2:DWORD, ship3:DWORD
+			      C GameLogic PROTO key:DWORD, ship1:DWORD, ship2:DWORD, ship3:DWORD, exp:DWORD, a1:DWORD, a3:DWORD, cage:DWORD
 			      C 
 			      C EXTERNDEF lpTyroneBmp : DWORD
 			      C 
- 0000001C		      C _SPRITE STRUCT
+ 00000018		      C _SPRITE STRUCT
  00000000  00000000	      C 	x DWORD ?
  00000004  00000000	      C 	y DWORD ?
  00000008  00000000	      C 	a DWORD ?
- 0000000C  00000000	      C 	xx DWORD ?
- 00000010  00000000	      C 	yy DWORD ?
- 00000014  00000000	      C 	aa  DWORD ?
- 00000018  00000000	      C 	bmpPtr DWORD ?
+ 0000000C  00000001	      C 	alive DWORD 1
+ 00000010  00000001	      C 	visible DWORD 1
+ 00000014  00000000	      C 	bmpPtr DWORD ?
 			      C _SPRITE ENDS
 			      C 
 			      C SPRITE TYPEDEF _SPRITE
 			      C 
 			      C EXTERNDEF asteroid1:SPRITE
 			      C EXTERNDEF asteroid2:SPRITE
+			      C EXTERNDEF asteroid3:SPRITE
+			      C EXTERNDEF cage1:SPRITE
+			      C EXTERNDEF cage2:SPRITE
 			      C EXTERNDEF ship:SPRITE
-			      C 
+			      C EXTERNDEF projectile:SPRITE
+			      C EXTERNDEF shot:DWORD
+			      C EXTERNDEF over:DWORD
+			      C EXTERNDEF num_loops:DWORD
 			      C 
 				    include keys.inc		
 			      C ;;
@@ -314,12 +319,15 @@ logic.asm						     Page 1 - 1
 
 
  = 00000064			FIXED_ANGLE_ROTATE = 00000100
+ = 0000000A			PROJECTILE_ACCEL = 10
  00000000 70 65 77 2E 77	pew BYTE "pew.wav",0
 	   61 76 00
  00000008 65 78 70 6C 6F	explosion_sound BYTE "explosion.wav",0
 	   73 69 6F 6E 2E
 	   77 61 76 00
-
+ 00000016 73 63 72 65 61	yelling BYTE "scream.wav",0
+	   6D 2E 77 61 76
+	   00
 					
  00000000			.CODE
 
@@ -333,92 +341,557 @@ logic.asm						     Page 1 - 1
 				;; Define the function GameLogic
 
 				MoveShip PROTO shipArg: PTR SPRITE, key:DWORD
+				Shoot PROTO
+				CheckCollision PROTO
+				UpdateEnemyPos PROTO a1:DWORD, a3:DWORD, cage:DWORD, exp:DWORD
+				GameReset PROTO a1:DWORD, a3:DWORD, cage:DWORD
 
- 00000000			GameLogic PROC USES ecx key:DWORD, ship1:DWORD, ship2:DWORD, ship3:DWORD
+ 00000000			GameLogic PROC USES ecx key:DWORD, ship1:DWORD, ship2:DWORD, ship3:DWORD, exp:DWORD, a1:DWORD, a3:DWORD, cage:DWORD
 
  00000004  8B 4D 0C			mov ecx, ship1
- 00000007  3B 0D 00000018 E		cmp ecx, ship.bmpPtr
+ 00000007  3B 0D 00000014 E		cmp ecx, ship.bmpPtr
  0000000D  74 0B			je changeship2
  0000000F  8B 4D 10			mov ecx, ship2
- 00000012  3B 0D 00000018 E		cmp ecx, ship.bmpPtr
+ 00000012  3B 0D 00000014 E		cmp ecx, ship.bmpPtr
  00000018  74 0B			je changeship3
 					
  0000001A			changeship2:
  0000001A  8B 4D 10			mov ecx, ship2
- 0000001D  89 0D 00000018 E		mov ship.bmpPtr, ecx
+ 0000001D  89 0D 00000014 E		mov ship.bmpPtr, ecx
  00000023  EB 09			jmp sprite_same
 
  00000025			changeship3:
  00000025  8B 4D 14			mov ecx, ship3
- 00000028  89 0D 00000018 E		mov ship.bmpPtr, ecx
+ 00000028  89 0D 00000014 E		mov ship.bmpPtr, ecx
 					
  0000002E			sprite_same:
  0000002E  8B 4D 08			mov ecx, key
  00000031  83 F9 20			cmp ecx, VK_SPACE
- 00000034  75 11			jne finish_up
+ 00000034  75 07			jne move
 					;; if space need to shoot projectile and play sound
-					INVOKE PlaySound, OFFSET pew, 0, SND_ASYNC+SND_FILENAME
+					INVOKE Shoot
+ 0000003B  EB 0D			jmp finish_up
 					
- 00000047			finish_up:	
+ 0000003D			move:	
 					INVOKE MoveShip, offset ship, key
- 00000054  83 05 00000008 E		add asteroid1.a, FIXED_ANGLE_ROTATE
-	   64
- 0000005B  83 2D 00000008 E		sub asteroid2.a, FIXED_ANGLE_ROTATE
-	   64
-					
+ 0000004A			finish_up:	
+ 0000004A  83 3D 00000000 E		cmp shot, 0
+	   00
+ 00000051  74 07			je done
+ 00000053  83 2D 00000004 E		sub projectile.y, PROJECTILE_ACCEL
+	   0A
+ 0000005A			done:
+					INVOKE CheckCollision
+					INVOKE UpdateEnemyPos, a1, a3, cage, exp
 					ret
- 00000067			GameLogic ENDP
+ 00000075			GameLogic ENDP
 
- 00000067			MoveShip PROC USES ebx ecx shipArg:PTR SPRITE, key: DWORD
- 0000006C  8B 4D 0C			mov ecx, key
- 0000006F  83 F9 25			cmp ecx, VK_LEFT
- 00000072  74 39			je left
- 00000074  83 F9 27			cmp ecx, VK_RIGHT
- 00000077  74 43			je right
- 00000079  83 F9 26			cmp ecx, VK_UP
- 0000007C  74 07			je up
- 0000007E  83 F9 28			cmp ecx, VK_DOWN
- 00000081  74 16			je down
- 00000083  EB 47			jmp done
+ 00000075			UpdateEnemyPos PROC USES ebx a1:DWORD, a3:DWORD, cage:DWORD, exp:DWORD
 
- 00000085			up:
- 00000085  8B 5D 08			mov ebx, shipArg
- 00000088  8B 4B 04			mov ecx, (SPRITE PTR [ebx]).y
- 0000008B  81 F9 00000145		cmp ecx, 325
- 00000091  7C 39			jl done
- 00000093  83 6B 04 0F			sub (SPRITE PTR [ebx]).y, 15
- 00000097  EB 33			jmp done
+ 00000079  8B 5D 14			mov ebx, exp
+					
+ 0000007C  81 3D 00000004 E		cmp cage1.y, 1500
+	   000005DC
+ 00000086  7F 32			jg reset
+ 00000088  81 3D 00000004 E		cmp cage2.y, 1500
+	   000005DC
+ 00000092  7F 26			jg reset
+ 00000094  81 3D 00000004 E		cmp asteroid1.y, 1500
+	   000005DC
+ 0000009E  7F 1A			jg reset
+ 000000A0  81 3D 00000004 E		cmp asteroid2.y, 650
+	   0000028A
+ 000000AA  7F 0E			jg reset
+ 000000AC  81 3D 00000004 E		cmp asteroid3.y, 1500
+	   000005DC
+ 000000B6  7F 02			jg reset
+ 000000B8  EB 14			jmp update
+ 000000BA			reset:
+ 000000BA  FF 05 00000000 E		inc num_loops
+					INVOKE GameReset, a1, a3, cage
+ 000000CE			update:
+ 000000CE  83 3D 0000000C E		cmp cage1.alive, 0
+	   00
+ 000000D5  74 10			je c1dead
+ 000000D7  83 05 00000004 E		add cage1.y, 1
+	   01
+ 000000DE  83 05 00000008 E		add cage1.a, FIXED_ANGLE_ROTATE
+	   64
+ 000000E5  EB 23			jmp c2
+ 000000E7			c1dead:
+ 000000E7  83 3D 00000010 E		cmp cage1.visible, 0
+	   00
+ 000000EE  74 1A			je c2
+ 000000F0  39 1D 00000014 E		cmp cage1.bmpPtr, ebx
+ 000000F6  74 08			je c1done
+ 000000F8  89 1D 00000014 E		mov cage1.bmpPtr, ebx
+ 000000FE  EB 0A			jmp c2
+ 00000100			c1done:
+ 00000100  C7 05 00000010 E		mov cage1.visible, 0
+	   00000000
+ 0000010A			c2:	
+ 0000010A  83 3D 0000000C E		cmp cage2.alive, 0
+	   00
+ 00000111  74 0E			je c2dead
+ 00000113  83 05 00000004 E		add cage2.y, 1
+	   01
+ 0000011A  83 2D 00000008 E		sub cage2.a, FIXED_ANGLE_ROTATE
+	   64
+ 00000121			c2dead:
+ 00000121  83 3D 00000010 E		cmp cage2.visible, 0
+	   00
+ 00000128  74 1A			je as1
+ 0000012A  39 1D 00000014 E		cmp cage2.bmpPtr, ebx
+ 00000130  74 08			je c2done
+ 00000132  89 1D 00000014 E		mov cage2.bmpPtr, ebx
+ 00000138  EB 0A			jmp as1
+ 0000013A			c2done:	
+ 0000013A  C7 05 00000010 E		mov cage2.visible, 0
+	   00000000
+ 00000144			as1:	
+ 00000144  83 3D 0000000C E		cmp asteroid1.alive, 0
+	   00
+ 0000014B  74 0E			je as1dead
+ 0000014D  83 05 00000004 E		add asteroid1.y, 1
+	   01
+ 00000154  83 2D 00000008 E		sub asteroid1.a, FIXED_ANGLE_ROTATE
+	   64
+ 0000015B			as1dead:
+ 0000015B  83 3D 00000010 E		cmp asteroid1.visible, 0
+	   00
+ 00000162  74 1A			je  as2
+ 00000164  39 1D 00000014 E		cmp asteroid1.bmpPtr, ebx
+ 0000016A  74 08			je as1done
+ 0000016C  89 1D 00000014 E		mov asteroid1.bmpPtr, ebx
+ 00000172  EB 0A			jmp as2
+ 00000174			as1done:	
+ 00000174  C7 05 00000010 E		mov asteroid1.visible, 0
+	   00000000
+ 0000017E			as2:
+ 0000017E  83 3D 0000000C E		cmp asteroid2.alive, 0
+	   00
+ 00000185  74 31			je as3
+ 00000187  83 05 00000004 E		add asteroid2.y, 1
+	   01
+ 0000018E  83 05 00000008 E		add asteroid2.a, FIXED_ANGLE_ROTATE
+	   64
+ 00000195			as2dead:
+ 00000195  83 3D 00000010 E		cmp asteroid2.visible, 0
+	   00
+ 0000019C  74 1A			je as3
+ 0000019E  39 1D 00000014 E		cmp asteroid2.bmpPtr, ebx
+ 000001A4  74 08			je as2done
+ 000001A6  89 1D 00000014 E		mov asteroid2.bmpPtr, ebx
+ 000001AC  EB 0A			jmp as3
+ 000001AE			as2done:
+ 000001AE  C7 05 00000010 E		mov asteroid2.visible, 0
+	   00000000
+ 000001B8			as3:
+ 000001B8  83 3D 0000000C E		cmp asteroid3.alive, 0
+	   00
+ 000001BF  74 31			je done
+ 000001C1  83 05 00000004 E		add asteroid3.y, 1
+	   01
+ 000001C8  83 2D 00000008 E		sub asteroid3.a, FIXED_ANGLE_ROTATE
+	   64
+ 000001CF			as3dead:
+ 000001CF  83 3D 00000010 E		cmp asteroid3.visible, 0
+	   00
+ 000001D6  74 1A			je done
+ 000001D8  39 1D 00000014 E		cmp asteroid3.bmpPtr, ebx
+ 000001DE  74 08			je as3done
+ 000001E0  89 1D 00000014 E		mov asteroid3.bmpPtr, ebx
+ 000001E6  EB 0A			jmp done
+ 000001E8			as3done:	
+ 000001E8  C7 05 00000010 E		mov asteroid3.visible, 0
+	   00000000
+ 000001F2			done:	
+					ret
+ 000001F7			UpdateEnemyPos ENDP
 
- 00000099			down:
- 00000099  8B 5D 08			mov ebx, shipArg
- 0000009C  8B 4B 04			mov ecx, (SPRITE PTR [ebx]).y
- 0000009F  81 F9 0000019F		cmp ecx, 415
- 000000A5  7F 25			jg done
- 000000A7  83 43 04 0F			add (SPRITE PTR [ebx]).y, 15
- 000000AB  EB 1F			jmp done
+ 000001F7			GameReset PROC USES eax ebx a1:DWORD, a3:DWORD, cage:DWORD
+					;; move correct bitmaps back in case they are explosions
+ 000001FC  8B 5D 08			mov ebx, a1
+ 000001FF  89 1D 00000014 E		mov asteroid1.bmpPtr, ebx
+ 00000205  8B 5D 0C			mov ebx, a3
+ 00000208  89 1D 00000014 E		mov asteroid2.bmpPtr, ebx
+ 0000020E  89 1D 00000014 E		mov asteroid3.bmpPtr, ebx
+ 00000214  8B 5D 10			mov ebx, cage
+ 00000217  89 1D 00000014 E		mov cage1.bmpPtr, ebx
+ 0000021D  89 1D 00000014 E		mov cage2.bmpPtr, ebx
+					;; set everything to alive again
+ 00000223  C7 05 0000000C E		mov asteroid1.alive, 1
+	   00000001
+ 0000022D  C7 05 0000000C E		mov asteroid2.alive, 1
+	   00000001
+ 00000237  C7 05 0000000C E		mov asteroid3.alive, 1
+	   00000001
+ 00000241  C7 05 0000000C E		mov cage1.alive, 1
+	   00000001
+ 0000024B  C7 05 0000000C E		mov cage2.alive, 1
+	   00000001
+					;; set everything to visible again
+ 00000255  C7 05 00000010 E		mov asteroid1.visible, 1
+	   00000001
+ 0000025F  C7 05 00000010 E		mov asteroid2.visible, 1
+	   00000001
+ 00000269  C7 05 00000010 E		mov asteroid3.visible, 1
+	   00000001
+ 00000273  C7 05 00000010 E		mov cage1.visible, 1
+	   00000001
+ 0000027D  C7 05 00000010 E		mov cage2.visible,1
+	   00000001
+
+					;; each reset move enemies 15*num_resets to the right
+ 00000287  83 3D 00000000 E		cmp num_loops, 5
+	   05
+ 0000028E  7F 2C			jg reset_loops
+ 00000290  A1 00000000 E		mov eax, num_loops
+ 00000295  BB 0000000F			mov ebx, 15
+ 0000029A  F7 E3			mul ebx
+ 0000029C  01 05 00000000 E		add asteroid1.x, eax
+ 000002A2  01 05 00000000 E		add asteroid2.x, eax
+ 000002A8  01 05 00000000 E		add asteroid3.x, eax
+ 000002AE  01 05 00000000 E		add cage1.x, eax
+ 000002B4  01 05 00000000 E		add cage2.x, eax
+ 000002BA  EB 3C			jmp reset_y
+
+ 000002BC			reset_loops:
+ 000002BC  C7 05 00000000 E		mov num_loops, 0
+	   00000000
+ 000002C6  C7 05 00000000 E		mov asteroid1.x, 90
+	   0000005A
+ 000002D0  C7 05 00000000 E		mov asteroid2.x, 180
+	   000000B4
+ 000002DA  C7 05 00000000 E		mov asteroid3.x, 500
+	   000001F4
+ 000002E4  C7 05 00000000 E		mov cage1.x, 300
+	   0000012C
+ 000002EE  C7 05 00000000 E		mov cage2.x, 35
+	   00000023
+
+ 000002F8			reset_y:
+ 000002F8  C7 05 00000004 E		mov asteroid1.y, -10
+	   FFFFFFF6
+ 00000302  C7 05 00000004 E		mov asteroid2.y, -500
+	   FFFFFE0C
+ 0000030C  C7 05 00000004 E		mov asteroid3.y, -100
+	   FFFFFF9C
+ 00000316  C7 05 00000004 E		mov cage1.y, -300
+	   FFFFFED4
+ 00000320  C7 05 00000004 E		mov cage2.y, -50
+	   FFFFFFCE
+					
+ 0000032A			done:	
+					ret
+ 00000330			GameReset ENDP
+					
+ 00000330			CheckCollision PROC USES ebx ecx edx
+					;; first check if projectile out of bounds and if so flip shot bool
+ 00000333  83 3D 00000000 E		cmp shot, 0
+	   00
+ 0000033A  0F 84 000001B5		je check_enemies
+ 00000340  83 3D 00000004 E		cmp projectile.y, 15
+	   0F
+ 00000347  7F 06			jg check_projectile_hit
+ 00000349  F7 15 00000000 E		not shot 		;flip shot bool cause out of bounds
+
+					;; all of the 'magic numbers' hardcoded for collision boundaries were determined through looking at image size in pixels and testing what made sense
+ 0000034F			check_projectile_hit:
+ 0000034F  8B 0D 00000000 E		mov ecx, projectile.x
+ 00000355  8B 15 00000004 E		mov edx, projectile.y
+					;; check if projectile hit enemy (need to check each enemy)
+					;; if (cage1.x - 30 < projectile.x && cage1.x + 30 > projectile.x && cage1.y + 20  >= projectile.y && cage1.y - 20 <= projectile.y) then collision
+ 0000035B  83 3D 00000010 E		cmp cage1.visible, 0
+	   00
+ 00000362  74 49			je c2proj
+ 00000364  8B 1D 00000000 E		mov ebx, cage1.x
+ 0000036A  83 EB 1E			sub ebx, 30
+ 0000036D  3B D9			cmp ebx, ecx
+ 0000036F  7F 3C			jg c2proj
+ 00000371  83 C3 3C			add ebx, 60
+ 00000374  3B D9			cmp ebx, ecx
+ 00000376  7C 35			jl c2proj
+ 00000378  8B 1D 00000004 E		mov ebx, cage1.y
+ 0000037E  83 C3 1E			add ebx, 30
+ 00000381  3B DA			cmp ebx, edx
+ 00000383  7C 28			jl c2proj
+ 00000385  83 EB 3C			sub ebx, 60
+ 00000388  3B DA			cmp ebx, edx
+ 0000038A  7F 21			jg c2proj
+ 0000038C  C7 05 0000000C E		mov cage1.alive, 0
+	   00000000
+ 00000396  F7 15 00000000 E		not shot
+					INVOKE PlaySound, OFFSET yelling, 0, SND_ASYNC+SND_FILENAME 
+ 000003AD			c2proj:
+ 000003AD  83 3D 00000010 E		cmp cage2.visible, 0
+	   00
+ 000003B4  74 49			je a1proj
+ 000003B6  8B 1D 00000000 E		mov ebx, cage2.x
+ 000003BC  83 EB 1E			sub ebx, 30
+ 000003BF  3B D9			cmp ebx, ecx
+ 000003C1  7F 3C			jg a1proj
+ 000003C3  83 C3 3C			add ebx, 60
+ 000003C6  3B D9			cmp ebx, ecx
+ 000003C8  7C 35			jl a1proj
+ 000003CA  8B 1D 00000004 E		mov ebx, cage2.y
+ 000003D0  83 C3 1E			add ebx, 30
+ 000003D3  3B DA			cmp ebx, edx
+ 000003D5  7C 28			jl a1proj
+ 000003D7  83 EB 3C			sub ebx, 60
+ 000003DA  3B DA			cmp ebx, edx
+ 000003DC  7F 21			jg a1proj
+ 000003DE  C7 05 0000000C E		mov cage2.alive, 0
+	   00000000
+ 000003E8  F7 15 00000000 E		not shot
+					INVOKE PlaySound, OFFSET yelling, 0, SND_ASYNC+SND_FILENAME
+ 000003FF			a1proj:
+ 000003FF  83 3D 00000010 E		cmp asteroid1.visible, 0
+	   00
+ 00000406  74 49			je a2proj
+ 00000408  8B 1D 00000000 E		mov ebx, asteroid1.x
+ 0000040E  83 EB 0F			sub ebx, 15
+ 00000411  3B D9			cmp ebx, ecx
+ 00000413  7F 3C			jg a2proj
+ 00000415  83 C3 1E			add ebx, 30
+ 00000418  3B D9			cmp ebx, ecx
+ 0000041A  7C 35			jl a2proj
+ 0000041C  8B 1D 00000004 E		mov ebx, asteroid1.y
+ 00000422  83 C3 10			add ebx, 16
+ 00000425  3B DA			cmp ebx, edx
+ 00000427  7C 28			jl a2proj
+ 00000429  83 EB 20			sub ebx, 32
+ 0000042C  3B DA			cmp ebx, edx
+ 0000042E  7F 21			jg a2proj
+ 00000430  C7 05 0000000C E		mov asteroid1.alive, 0
+	   00000000
+ 0000043A  F7 15 00000000 E		not shot
+					INVOKE PlaySound, OFFSET explosion_sound, 0, SND_ASYNC+SND_FILENAME
+ 00000451			a2proj:
+ 00000451  83 3D 00000010 E		cmp asteroid2.visible, 0
+	   00
+ 00000458  74 49			je a3proj
+ 0000045A  8B 1D 00000000 E		mov ebx, asteroid2.x
+ 00000460  83 EB 16			sub ebx, 22
+ 00000463  3B D9			cmp ebx, ecx
+ 00000465  7F 3C			jg a3proj
+ 00000467  83 C3 2C			add ebx, 44
+ 0000046A  3B D9			cmp ebx, ecx
+ 0000046C  7C 35			jl a3proj
+ 0000046E  8B 1D 00000004 E		mov ebx, asteroid2.y
+ 00000474  83 C3 16			add ebx, 22
+ 00000477  3B DA			cmp ebx, edx
+ 00000479  7C 28			jl a3proj
+ 0000047B  83 EB 2C			sub ebx, 44
+ 0000047E  3B DA			cmp ebx, edx
+ 00000480  7F 21			jg a3proj
+ 00000482  C7 05 0000000C E		mov asteroid2.alive, 0
+	   00000000
+ 0000048C  F7 15 00000000 E		not shot
+					INVOKE PlaySound, OFFSET explosion_sound, 0, SND_ASYNC+SND_FILENAME
+ 000004A3			a3proj:
+ 000004A3  83 3D 00000010 E		cmp asteroid3.visible, 0
+	   00
+ 000004AA  74 49			je check_enemies
+ 000004AC  8B 1D 00000000 E		mov ebx, asteroid3.x
+ 000004B2  83 EB 16			sub ebx, 22
+ 000004B5  3B D9			cmp ebx, ecx
+ 000004B7  7F 3C			jg check_enemies
+ 000004B9  83 C3 2C			add ebx, 44
+ 000004BC  3B D9			cmp ebx, ecx
+ 000004BE  7C 35			jl check_enemies
+ 000004C0  8B 1D 00000004 E		mov ebx, asteroid3.y
+ 000004C6  83 C3 16			add ebx, 22
+ 000004C9  3B DA			cmp ebx, edx
+ 000004CB  7C 28			jl check_enemies
+ 000004CD  83 EB 2C			sub ebx, 44
+ 000004D0  3B DA			cmp ebx, edx
+ 000004D2  7F 21			jg check_enemies
+ 000004D4  C7 05 0000000C E		mov asteroid3.alive, 0
+	   00000000
+ 000004DE  F7 15 00000000 E		not shot
+					INVOKE PlaySound, OFFSET explosion_sound, 0, SND_ASYNC+SND_FILENAME
+					
+ 000004F5			check_enemies:
+					;; check if any objects collide with the player (need to check each enemy vs player)
+ 000004F5  8B 0D 00000000 E		mov ecx, ship.x
+ 000004FB  8B 15 00000004 E		mov edx, ship.y
+
+ 00000501  83 3D 00000010 E		cmp cage1.visible, 0
+	   00
+ 00000508  74 32			je c2ship
+ 0000050A  8B 1D 00000000 E		mov ebx, cage1.x
+ 00000510  83 EB 1E			sub ebx, 30
+ 00000513  3B D9			cmp ebx, ecx
+ 00000515  7F 25			jg c2ship
+ 00000517  83 C3 3C			add ebx, 60
+ 0000051A  3B D9			cmp ebx, ecx
+ 0000051C  7C 1E			jl c2ship
+ 0000051E  8B 1D 00000004 E		mov ebx, cage1.y
+ 00000524  83 C3 1E			add ebx, 30
+ 00000527  3B DA			cmp ebx, edx
+ 00000529  7C 11			jl c2ship
+ 0000052B  83 EB 3C			sub ebx, 60
+ 0000052E  3B DA			cmp ebx, edx
+ 00000530  7F 0A			jg c2ship
+ 00000532  C7 05 00000000 E		mov over, 1
+	   00000001
+ 0000053C			c2ship:
+ 0000053C  83 3D 00000010 E		cmp cage2.visible, 0
+	   00
+ 00000543  74 32			je a1ship
+ 00000545  8B 1D 00000000 E		mov ebx, cage2.x
+ 0000054B  83 EB 1E			sub ebx, 30
+ 0000054E  3B D9			cmp ebx, ecx
+ 00000550  7F 25			jg a1ship
+ 00000552  83 C3 3C			add ebx, 60
+ 00000555  3B D9			cmp ebx, ecx
+ 00000557  7C 1E			jl a1ship
+ 00000559  8B 1D 00000004 E		mov ebx, cage2.y
+ 0000055F  83 C3 1E			add ebx, 30
+ 00000562  3B DA			cmp ebx, edx
+ 00000564  7C 11			jl a1ship
+ 00000566  83 EB 3C			sub ebx, 60
+ 00000569  3B DA			cmp ebx, edx
+ 0000056B  7F 0A			jg a1ship
+ 0000056D  C7 05 00000000 E		mov over, 1
+	   00000001
+ 00000577			a1ship:
+ 00000577  83 3D 00000010 E		cmp asteroid1.visible, 0
+	   00
+ 0000057E  74 32			je a2ship
+ 00000580  8B 1D 00000000 E		mov ebx, asteroid1.x
+ 00000586  83 EB 0F			sub ebx, 15
+ 00000589  3B D9			cmp ebx, ecx
+ 0000058B  7F 25			jg a2ship
+ 0000058D  83 C3 1E			add ebx, 30
+ 00000590  3B D9			cmp ebx, ecx
+ 00000592  7C 1E			jl a2ship
+ 00000594  8B 1D 00000004 E		mov ebx, asteroid1.y
+ 0000059A  83 C3 10			add ebx, 16
+ 0000059D  3B DA			cmp ebx, edx
+ 0000059F  7C 11			jl a2ship
+ 000005A1  83 EB 20			sub ebx, 32
+ 000005A4  3B DA			cmp ebx, edx
+ 000005A6  7F 0A			jg a2ship
+ 000005A8  C7 05 00000000 E		mov over, 1
+	   00000001
+ 000005B2			a2ship:
+ 000005B2  83 3D 00000010 E		cmp asteroid2.visible, 0
+	   00
+ 000005B9  74 32			je a3ship
+ 000005BB  8B 1D 00000000 E		mov ebx, asteroid2.x
+ 000005C1  83 EB 16			sub ebx, 22
+ 000005C4  3B D9			cmp ebx, ecx
+ 000005C6  7F 25			jg a3ship
+ 000005C8  83 C3 2C			add ebx, 44
+ 000005CB  3B D9			cmp ebx, ecx
+ 000005CD  7C 1E			jl a3ship
+ 000005CF  8B 1D 00000004 E		mov ebx, asteroid2.y
+ 000005D5  83 C3 16			add ebx, 22
+ 000005D8  3B DA			cmp ebx, edx
+ 000005DA  7C 11			jl a3ship
+ 000005DC  83 EB 2C			sub ebx, 44
+ 000005DF  3B DA			cmp ebx, edx
+ 000005E1  7F 0A			jg a3ship
+ 000005E3  C7 05 00000000 E		mov over, 1
+	   00000001
+ 000005ED			a3ship:
+ 000005ED  83 3D 00000010 E		cmp asteroid3.visible, 0
+	   00
+ 000005F4  74 32			je done
+ 000005F6  8B 1D 00000000 E		mov ebx, asteroid3.x
+ 000005FC  83 EB 16			sub ebx, 22
+ 000005FF  3B D9			cmp ebx, ecx
+ 00000601  7F 25			jg done
+ 00000603  83 C3 2C			add ebx, 44
+ 00000606  3B D9			cmp ebx, ecx
+ 00000608  7C 1E			jl done
+ 0000060A  8B 1D 00000004 E		mov ebx, asteroid3.y
+ 00000610  83 C3 16			add ebx, 22
+ 00000613  3B DA			cmp ebx, edx
+ 00000615  7C 11			jl done
+ 00000617  83 EB 2C			sub ebx, 44
+ 0000061A  3B DA			cmp ebx, edx
+ 0000061C  7F 0A			jg done
+ 0000061E  C7 05 00000000 E		mov over, 1
+	   00000001
+					
+ 00000628			done: 
+					ret
+ 0000062C			CheckCollision ENDP
+
+ 0000062C			Shoot PROC USES ebx ecx edx
+ 0000062F  83 3D 00000000 E		cmp shot, 0
+	   00
+ 00000636  75 3E			jne done
+ 00000638  BB 00000000 E		mov ebx, offset ship
+ 0000063D  8B 0B			mov ecx, (SPRITE PTR [ebx]).x
+ 0000063F  89 0D 00000000 E		mov projectile.x, ecx
+ 00000645  8B 4B 04			mov ecx, (SPRITE PTR [ebx]).y
+ 00000648  89 0D 00000004 E		mov projectile.y, ecx
+ 0000064E  83 2D 00000004 E		sub projectile.y, 28
+	   1C
+ 00000655  C7 05 00000008 E		mov projectile.a, 0
+	   00000000
+					INVOKE PlaySound, OFFSET pew, 0, SND_ASYNC+SND_FILENAME
+ 00000670  F7 15 00000000 E		not shot
+
+ 00000676			done:
+					ret
+					
+ 0000067A			Shoot ENDP
+					
+ 0000067A			MoveShip PROC USES ebx ecx shipArg:PTR SPRITE, key: DWORD
+ 0000067F  8B 4D 0C			mov ecx, key
+ 00000682  83 F9 25			cmp ecx, VK_LEFT
+ 00000685  74 39			je left
+ 00000687  83 F9 27			cmp ecx, VK_RIGHT
+ 0000068A  74 43			je right
+ 0000068C  83 F9 26			cmp ecx, VK_UP
+ 0000068F  74 07			je up
+ 00000691  83 F9 28			cmp ecx, VK_DOWN
+ 00000694  74 16			je down
+ 00000696  EB 47			jmp done
+
+ 00000698			up:
+ 00000698  8B 5D 08			mov ebx, shipArg
+ 0000069B  8B 4B 04			mov ecx, (SPRITE PTR [ebx]).y
+ 0000069E  81 F9 00000145		cmp ecx, 325
+ 000006A4  7C 39			jl done
+ 000006A6  83 6B 04 0F			sub (SPRITE PTR [ebx]).y, 15
+ 000006AA  EB 33			jmp done
+
+ 000006AC			down:
+ 000006AC  8B 5D 08			mov ebx, shipArg
+ 000006AF  8B 4B 04			mov ecx, (SPRITE PTR [ebx]).y
+ 000006B2  81 F9 0000019F		cmp ecx, 415
+ 000006B8  7F 25			jg done
+ 000006BA  83 43 04 0F			add (SPRITE PTR [ebx]).y, 15
+ 000006BE  EB 1F			jmp done
 
 					
- 000000AD			left:
- 000000AD  8B 5D 08			mov ebx, shipArg
- 000000B0  8B 0B			mov ecx, (SPRITE PTR [ebx]).x
- 000000B2  83 F9 1E			cmp ecx, 30 		;check so you don't go out of bounds
- 000000B5  7C 15			jl done
- 000000B7  83 2B 0F			sub (SPRITE PTR[ebx]).x, 15;	
- 000000BA  EB 10			jmp done
+ 000006C0			left:
+ 000006C0  8B 5D 08			mov ebx, shipArg
+ 000006C3  8B 0B			mov ecx, (SPRITE PTR [ebx]).x
+ 000006C5  83 F9 1E			cmp ecx, 30 		;check so you don't go out of bounds
+ 000006C8  7C 15			jl done
+ 000006CA  83 2B 0F			sub (SPRITE PTR[ebx]).x, 15;	
+ 000006CD  EB 10			jmp done
 
- 000000BC			right: 
- 000000BC  8B 5D 08			mov ebx, shipArg
- 000000BF  8B 0B			mov ecx, (SPRITE PTR[ebx]).x
- 000000C1  81 F9 00000258		cmp ecx, 600		;check so you don't go out of bounds
- 000000C7  7F 03			jg done
- 000000C9  83 03 0F			add (SPRITE PTR[ebx]).x, 15
+ 000006CF			right: 
+ 000006CF  8B 5D 08			mov ebx, shipArg
+ 000006D2  8B 0B			mov ecx, (SPRITE PTR[ebx]).x
+ 000006D4  81 F9 00000258		cmp ecx, 600		;check so you don't go out of bounds
+ 000006DA  7F 03			jg done
+ 000006DC  83 03 0F			add (SPRITE PTR[ebx]).x, 15
 
- 000000CC			done:
+ 000006DF			done:
 					ret
- 000000D2			MoveShip ENDP
+ 000006E5			MoveShip ENDP
 					
 				END
-Microsoft (R) Macro Assembler Version 6.14.8444		    03/12/14 23:13:06
+Microsoft (R) Macro Assembler Version 6.14.8444		    03/13/14 22:44:33
 logic.asm						     Symbols 2 - 1
 
 
@@ -434,14 +907,13 @@ _EECS205BITMAP . . . . . . . . .	 00000010
   dwHeight . . . . . . . . . . .	 00000004	 DWord
   bTransparent . . . . . . . . .	 00000008	 Byte
   lpBytes  . . . . . . . . . . .	 0000000C	 DWord
-_SPRITE  . . . . . . . . . . . .	 0000001C
+_SPRITE  . . . . . . . . . . . .	 00000018
   x  . . . . . . . . . . . . . .	 00000000	 DWord
   y  . . . . . . . . . . . . . .	 00000004	 DWord
   a  . . . . . . . . . . . . . .	 00000008	 DWord
-  xx . . . . . . . . . . . . . .	 0000000C	 DWord
-  yy . . . . . . . . . . . . . .	 00000010	 DWord
-  aa . . . . . . . . . . . . . .	 00000014	 DWord
-  bmpPtr . . . . . . . . . . . .	 00000018	 DWord
+  alive  . . . . . . . . . . . .	 0000000C	 DWord
+  visible  . . . . . . . . . . .	 00000010	 DWord
+  bmpPtr . . . . . . . . . . . .	 00000014	 DWord
 
 
 Types:
@@ -450,7 +922,7 @@ Types:
 
 EECS205BITMAP  . . . . . . . . .	 00000010     _EECS205BITMAP 
 FIXED  . . . . . . . . . . . . .	 00000004     DWord 
-SPRITE . . . . . . . . . . . . .	 0000001C     _SPRITE 
+SPRITE . . . . . . . . . . . . .	 00000018     _SPRITE 
 
 
 Segments and Groups:
@@ -459,8 +931,8 @@ Segments and Groups:
 
 FLAT . . . . . . . . . . . . . .	GROUP
 STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
-_DATA  . . . . . . . . . . . . .	32 Bit	 00000016 Para	  Public  'DATA'	
-_TEXT  . . . . . . . . . . . . .	32 Bit	 000000D2 Para	  Public  'CODE'	
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000021 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 000006E5 Para	  Public  'CODE'	
 
 
 Procedures,  parameters and locals:
@@ -470,6 +942,18 @@ Procedures,  parameters and locals:
 BasicBlit  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 BeginDraw  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 BlitReg  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+CheckCollision . . . . . . . . .	P Near	 00000330 _TEXT	Length= 000002FC Public STDCALL
+  check_projectile_hit . . . . .	L Near	 0000034F _TEXT	
+  c2proj . . . . . . . . . . . .	L Near	 000003AD _TEXT	
+  a1proj . . . . . . . . . . . .	L Near	 000003FF _TEXT	
+  a2proj . . . . . . . . . . . .	L Near	 00000451 _TEXT	
+  a3proj . . . . . . . . . . . .	L Near	 000004A3 _TEXT	
+  check_enemies  . . . . . . . .	L Near	 000004F5 _TEXT	
+  c2ship . . . . . . . . . . . .	L Near	 0000053C _TEXT	
+  a1ship . . . . . . . . . . . .	L Near	 00000577 _TEXT	
+  a2ship . . . . . . . . . . . .	L Near	 000005B2 _TEXT	
+  a3ship . . . . . . . . . . . .	L Near	 000005ED _TEXT	
+  done . . . . . . . . . . . . .	L Near	 00000628 _TEXT	
 DrawAllStars . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 DrawInt  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 DrawStarReg  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
@@ -479,27 +963,64 @@ FixedCos . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 FixedMult  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 FixedSin . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 GameInit . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-GameLogic  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000067 Public STDCALL
+GameLogic  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000075 Public STDCALL
   key  . . . . . . . . . . . . .	DWord	 bp + 00000008
   ship1  . . . . . . . . . . . .	DWord	 bp + 0000000C
   ship2  . . . . . . . . . . . .	DWord	 bp + 00000010
   ship3  . . . . . . . . . . . .	DWord	 bp + 00000014
+  exp  . . . . . . . . . . . . .	DWord	 bp + 00000018
+  a1 . . . . . . . . . . . . . .	DWord	 bp + 0000001C
+  a3 . . . . . . . . . . . . . .	DWord	 bp + 00000020
+  cage . . . . . . . . . . . . .	DWord	 bp + 00000024
   changeship2  . . . . . . . . .	L Near	 0000001A _TEXT	
   changeship3  . . . . . . . . .	L Near	 00000025 _TEXT	
   sprite_same  . . . . . . . . .	L Near	 0000002E _TEXT	
-  finish_up  . . . . . . . . . .	L Near	 00000047 _TEXT	
+  move . . . . . . . . . . . . .	L Near	 0000003D _TEXT	
+  finish_up  . . . . . . . . . .	L Near	 0000004A _TEXT	
+  done . . . . . . . . . . . . .	L Near	 0000005A _TEXT	
 GameMain . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 GameRender . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-MoveShip . . . . . . . . . . . .	P Near	 00000067 _TEXT	Length= 0000006B Public STDCALL
+GameReset  . . . . . . . . . . .	P Near	 000001F7 _TEXT	Length= 00000139 Public STDCALL
+  a1 . . . . . . . . . . . . . .	DWord	 bp + 00000008
+  a3 . . . . . . . . . . . . . .	DWord	 bp + 0000000C
+  cage . . . . . . . . . . . . .	DWord	 bp + 00000010
+  reset_loops  . . . . . . . . .	L Near	 000002BC _TEXT	
+  reset_y  . . . . . . . . . . .	L Near	 000002F8 _TEXT	
+  done . . . . . . . . . . . . .	L Near	 0000032A _TEXT	
+MoveShip . . . . . . . . . . . .	P Near	 0000067A _TEXT	Length= 0000006B Public STDCALL
   shipArg  . . . . . . . . . . .	DWord	 bp + 00000008
   key  . . . . . . . . . . . . .	DWord	 bp + 0000000C
-  up . . . . . . . . . . . . . .	L Near	 00000085 _TEXT	
-  down . . . . . . . . . . . . .	L Near	 00000099 _TEXT	
-  left . . . . . . . . . . . . .	L Near	 000000AD _TEXT	
-  right  . . . . . . . . . . . .	L Near	 000000BC _TEXT	
-  done . . . . . . . . . . . . .	L Near	 000000CC _TEXT	
+  up . . . . . . . . . . . . . .	L Near	 00000698 _TEXT	
+  down . . . . . . . . . . . . .	L Near	 000006AC _TEXT	
+  left . . . . . . . . . . . . .	L Near	 000006C0 _TEXT	
+  right  . . . . . . . . . . . .	L Near	 000006CF _TEXT	
+  done . . . . . . . . . . . . .	L Near	 000006DF _TEXT	
 PlaySoundA . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 RotateBlit . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Shoot  . . . . . . . . . . . . .	P Near	 0000062C _TEXT	Length= 0000004E Public STDCALL
+  done . . . . . . . . . . . . .	L Near	 00000676 _TEXT	
+UpdateEnemyPos . . . . . . . . .	P Near	 00000075 _TEXT	Length= 00000182 Public STDCALL
+  a1 . . . . . . . . . . . . . .	DWord	 bp + 00000008
+  a3 . . . . . . . . . . . . . .	DWord	 bp + 0000000C
+  cage . . . . . . . . . . . . .	DWord	 bp + 00000010
+  exp  . . . . . . . . . . . . .	DWord	 bp + 00000014
+  reset  . . . . . . . . . . . .	L Near	 000000BA _TEXT	
+  update . . . . . . . . . . . .	L Near	 000000CE _TEXT	
+  c1dead . . . . . . . . . . . .	L Near	 000000E7 _TEXT	
+  c1done . . . . . . . . . . . .	L Near	 00000100 _TEXT	
+  c2 . . . . . . . . . . . . . .	L Near	 0000010A _TEXT	
+  c2dead . . . . . . . . . . . .	L Near	 00000121 _TEXT	
+  c2done . . . . . . . . . . . .	L Near	 0000013A _TEXT	
+  as1  . . . . . . . . . . . . .	L Near	 00000144 _TEXT	
+  as1dead  . . . . . . . . . . .	L Near	 0000015B _TEXT	
+  as1done  . . . . . . . . . . .	L Near	 00000174 _TEXT	
+  as2  . . . . . . . . . . . . .	L Near	 0000017E _TEXT	
+  as2dead  . . . . . . . . . . .	L Near	 00000195 _TEXT	
+  as2done  . . . . . . . . . . .	L Near	 000001AE _TEXT	
+  as3  . . . . . . . . . . . . .	L Near	 000001B8 _TEXT	
+  as3dead  . . . . . . . . . . .	L Near	 000001CF _TEXT	
+  as3done  . . . . . . . . . . .	L Near	 000001E8 _TEXT	
+  done . . . . . . . . . . . . .	L Near	 000001F2 _TEXT	
 
 
 Symbols:
@@ -516,6 +1037,7 @@ Symbols:
 @fardata . . . . . . . . . . . .	Text   	 FLAT
 @stack . . . . . . . . . . . . .	Text   	 FLAT
 FIXED_ANGLE_ROTATE . . . . . . .	Number	 00000064h   
+PROJECTILE_ACCEL . . . . . . . .	Number	 0000000Ah   
 PlaySound  . . . . . . . . . . .	Text   	 PlaySoundA
 SINTAB . . . . . . . . . . . . .	Word	 00000000 FLAT	External STDCALL
 SND_ASYNC  . . . . . . . . . . .	Number	 00000001h   
@@ -649,12 +1171,20 @@ VK_Z . . . . . . . . . . . . . .	Number	 0000005Ah
 WinMain  . . . . . . . . . . . .	L Near	 00000000 FLAT	External STDCALL
 asteroid1  . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
 asteroid2  . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
+asteroid3  . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
+cage1  . . . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
+cage2  . . . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
 dwPitch  . . . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
 explosion_sound  . . . . . . . .	Byte	 00000008 _DATA	
 lpDisplayBits  . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
 lpTyroneBmp  . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+num_loops  . . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+over . . . . . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
 pew  . . . . . . . . . . . . . .	Byte	 00000000 _DATA	
+projectile . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
 ship . . . . . . . . . . . . . .	_SPRITE	 00000000 FLAT	External STDCALL
+shot . . . . . . . . . . . . . .	DWord	 00000000 FLAT	External STDCALL
+yelling  . . . . . . . . . . . .	Byte	 00000016 _DATA	
 
 	   0 Warnings
 	   0 Errors
